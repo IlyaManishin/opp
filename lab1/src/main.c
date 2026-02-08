@@ -8,6 +8,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+const char *RES_PATH = "output.txt";
+
 LinearSystem get_linear_system(char *path)
 {
     LinearSystem sys = read_lin_system(path);
@@ -50,6 +52,22 @@ bool checkAnswer(double *check, double *valid, int n)
     return true;
 }
 
+void writeAnswer(double *x, int n)
+{
+    FILE *f = fopen(RES_PATH, "w");
+    if (!f)
+    {
+        perror("fopen");
+        return;
+    }
+    fprintf(f, "%d\n", n);
+    for (int i = 0; i < n; i++)
+    {
+        fprintf(f, "%0.8lf\n", x[i]);
+    }
+    fclose(f);
+}
+
 int main(int argc, char **argv)
 {
     if (argc != 2)
@@ -62,9 +80,13 @@ int main(int argc, char **argv)
     int n = data.n;
     double *A = data.A;
     double *b = data.b;
-
     double *x = (double *)malloc(n * sizeof(double));
-    SolverStatus st = solve_min_residuals(A, n, b, x, EPS, MAX_ITER);
+
+#ifdef MPI
+    SolverStatus st = solve_linear_multy(A, n, b, x, EPS, MAX_ITER);
+#else
+    SolverStatus st = solve_linear_single(A, n, b, x, EPS, MAX_ITER);
+#endif
 
     int statusCode = EXIT_SUCCESS;
     if (st != SOL_OK)
@@ -75,6 +97,7 @@ int main(int argc, char **argv)
     else
     {
         statusCode = checkAnswer(x, b, n) ? EXIT_SUCCESS : EXIT_FAILURE;
+        writeAnswer(x, n);
     }
     free(A);
     free(b);

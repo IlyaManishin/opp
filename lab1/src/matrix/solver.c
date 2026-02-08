@@ -1,9 +1,9 @@
+#include "solver.h"
+#include "matrix.h"
+
 #include <cblas.h>
 #include <math.h>
 #include <stdlib.h>
-
-#include "matrix.h"
-#include "solver.h"
 
 static double vec_dot(const double *u, const double *v, int n)
 {
@@ -15,7 +15,7 @@ static double vec_norm(const double *v, int n)
     return sqrt(vec_dot(v, v, n));
 }
 
-SolverStatus solve_min_residuals(
+static bool check_params(
     const double *A,
     int n,
     const double *b,
@@ -23,11 +23,26 @@ SolverStatus solve_min_residuals(
     double eps,
     int max_iters)
 {
-    if (!A || !b || !x || n <= 0 || eps <= 0.0 || max_iters <= 0)
+    if (!A || !b || !x)
+        return false;
+    if (n <= 0 || eps <= 0.0 || max_iters <= 0)
+        return false;
+    return true;
+}
+
+SolverStatus solve_linear_single(
+    const double *A,
+    int n,
+    const double *b,
+    double *x,
+    double eps,
+    int max_iters)
+{
+    if (check_params(A, n, b, x, eps, max_iters))
         return SOL_INPUT_ERR;
 
-    double *y = (double *)malloc(sizeof(double) * n);
-    double *Ay = (double *)malloc(sizeof(double) * n);
+    double *y = vector_create(n);
+    double *Ay = vector_create(n);
 
     if (!y || !Ay)
     {
@@ -79,4 +94,17 @@ SolverStatus solve_min_residuals(
     free(y);
     free(Ay);
     return SOL_MAX_ITERS;
+}
+
+SolverStatus solve_linear_multy(
+    const double *A,
+    int n,
+    const double *b,
+    double *x,
+    double eps,
+    int max_iters)
+{
+    if (check_params(A, n, b, x, eps, max_iters))
+        return SOL_INPUT_ERR;
+    
 }

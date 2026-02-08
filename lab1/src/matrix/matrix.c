@@ -1,35 +1,48 @@
-#include <stdlib.h>
 #include <cblas.h>
+#include <stdlib.h>
 
 #include "matrix.h"
 
-double *matrix_create(int rows, int cols) {
+double *matrix_create(int rows, int cols)
+{
     return (double *)calloc((size_t)rows * (size_t)cols, sizeof(double));
 }
 
-void matrix_free(double *A) {
+double *vector_create(int n)
+{
+    return (double *)calloc((size_t)n, sizeof(double));
+}
+
+void matrix_free(double *A)
+{
     free(A);
 }
 
-double matrix_get(const double *A, int cols, int i, int j) {
+double matrix_get(const double *A, int cols, int i, int j)
+{
     return A[i * cols + j];
 }
 
-void matrix_set(double *A, int cols, int i, int j, double value) {
+void matrix_set(double *A, int cols, int i, int j, double value)
+{
     A[i * cols + j] = value;
 }
 
-void matrix_swap_rows(double *A, int cols, int r1, int r2) {
-    if (r1 == r2) return;
+void matrix_swap_rows(double *A, int cols, int r1, int r2)
+{
+    if (r1 == r2)
+        return;
 
-    for (int j = 0; j < cols; j++) {
+    for (int j = 0; j < cols; j++)
+    {
         double tmp = A[r1 * cols + j];
         A[r1 * cols + j] = A[r2 * cols + j];
         A[r2 * cols + j] = tmp;
     }
 }
 
-void matrix_mul_vec(const double *A, int rows, int cols, const double *x, double *y) {
+void matrix_mul_vec(const double *A, int rows, int cols, const double *x, double *y)
+{
     cblas_dgemv(
         CblasRowMajor,
         CblasNoTrans,
@@ -42,6 +55,5 @@ void matrix_mul_vec(const double *A, int rows, int cols, const double *x, double
         1,
         0.0,
         y,
-        1
-    );
+        1);
 }

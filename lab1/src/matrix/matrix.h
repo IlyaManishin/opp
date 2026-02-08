@@ -5,6 +5,8 @@
 double *matrix_create(int rows, int cols);
 void matrix_free(double *A);
 
+double *vector_create(int n);
+
 double matrix_get(const double *A, int cols, int i, int j);
 void matrix_set(double *A, int cols, int i, int j, double value);
 

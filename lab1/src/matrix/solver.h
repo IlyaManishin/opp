@@ -1,18 +1,25 @@
 #pragma once
 
-
-typedef enum {
+typedef enum
+{
     SOL_OK = 0,
     SOL_MAX_ITERS,
     SOL_INPUT_ERR,
     SOL_INVALID
 } SolverStatus;
 
-SolverStatus solve_min_residuals(
+SolverStatus solve_linear_single(
     const double *A,
     int n,
     const double *b,
     double *x,
     double eps,
-    int max_iters
-);
+    int max_iters);
+
+SolverStatus solve_linear_multy(
+    const double *A,
+    int n,
+    const double *b,
+    double *x,
+    double eps,
+    int max_iters);
