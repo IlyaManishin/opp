@@ -9,6 +9,8 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 find_package(BLAS REQUIRED)
 
+# add_definitions(-DDEBUG)
+
 add_subdirectory(src/)
 
 
