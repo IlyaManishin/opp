@@ -16,7 +16,13 @@ SolverStatus solve_linear_single(
     double eps,
     int max_iters);
 
+void slave_task(
+    double *A_part,
+    int n,
+    int rows);
+
 SolverStatus solve_linear_multy(
+    const int *slaves_mask,
     const double *A,
     int n,
     const double *b,

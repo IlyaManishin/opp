@@ -3,7 +3,14 @@
 
 #include <cblas.h>
 #include <math.h>
+#include <mpi.h>
 #include <stdlib.h>
+
+enum SLAVE_COMMANDS
+{
+    SLAVE_EXIT,
+    SLAVE_MUL
+};
 
 static double vec_dot(const double *u, const double *v, int n)
 {
@@ -96,7 +103,51 @@ SolverStatus solve_linear_single(
     return SOL_MAX_ITERS;
 }
 
+void slave_task(double *A_part, int n, int rows)
+{
+    double *vec = malloc(sizeof(double) * n);
+    double *out_local = malloc(sizeof(double) * rows);
+
+    if (!vec || !out_local)
+    {
+        free(vec);
+        free(out_local);
+        return;
+    }
+
+    while (1)
+    {
+        int cmd;
+        MPI_Recv(&cmd, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+        if (cmd == SLAVE_EXIT)
+            break;
+
+        if (cmd == SLAVE_MUL)
+        {
+            MPI_Recv(vec, n, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+            matrix_mul_vec(A_part, rows, n, vec, out_local);
+
+            MPI_Send(out_local, rows, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
+        }
+    }
+
+    free(vec);
+    free(out_local);
+}
+
+static void exit_slaves(int rank, int size)
+{
+    if (MPI_Comm_rank(MPI_COMM_WORLD, &rank) != 0)
+        return;
+    int cmd = SLAVE_EXIT;
+    for (int dest = 1; dest < size; ++dest)
+        MPI_Send(&cmd, 1, MPI_INT, dest, 0, MPI_COMM_WORLD);
+}
+
 SolverStatus solve_linear_multy(
+    const int *slaves_mask,
     const double *A,
     int n,
     const double *b,
@@ -104,7 +155,101 @@ SolverStatus solve_linear_multy(
     double eps,
     int max_iters)
 {
-    if (check_params(A, n, b, x, eps, max_iters))
+    SolverStatus status = SOL_INVALID;
+
+    if (!check_params(A, n, b, x, eps, max_iters))
         return SOL_INPUT_ERR;
-    
+
+    int rank = 0, size = 1;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+    if (size <= 0 || rank != 0)
+        return SOL_INVALID;
+
+    if (size == 1)
+    {
+        return solve_linear_single(A, n, b, x, eps, max_iters);
+    }
+
+    int *displs = malloc(sizeof(int) * size);
+    double *y = malloc(sizeof(double) * n);
+    double *Ay = malloc(sizeof(double) * n);
+    double *out_master = malloc(sizeof(double) * slaves_mask[0]);
+
+    if (!displs || !y || !Ay || !out_master)
+        goto cleanup;
+
+    displs[0] = 0;
+    for (int i = 1; i < size; ++i)
+        displs[i] = displs[i - 1] + slaves_mask[i - 1];
+
+    double norm_b = vec_norm(b, n);
+    if (norm_b < 1e-30)
+        norm_b = 1.0;
+
+
+    for (int iter = 0; iter < max_iters; ++iter)
+    {
+        int cmd = SLAVE_MUL;
+        for (int dest = 1; dest < size; ++dest)
+        {
+            MPI_Send(&cmd, 1, MPI_INT, dest, 0, MPI_COMM_WORLD);
+            MPI_Send(x, n, MPI_DOUBLE, dest, 0, MPI_COMM_WORLD);
+        }
+
+        if (slaves_mask[0] > 0)
+            matrix_mul_vec(A, slaves_mask[0], n, x, out_master);
+        for (int i = 0; i < slaves_mask[0]; ++i)
+            y[i] = out_master[i];
+
+        for (int src = 1; src < size; ++src)
+            MPI_Recv(y + displs[src], slaves_mask[src], MPI_DOUBLE, src, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+        for (int i = 0; i < n; ++i)
+            y[i] -= b[i];
+
+        if (vec_norm(y, n) / norm_b < eps)
+        {
+            status = SOL_OK;
+            break;
+        }
+
+        for (int dest = 1; dest < size; ++dest)
+        {
+            cmd = SLAVE_MUL;
+            MPI_Send(&cmd, 1, MPI_INT, dest, 0, MPI_COMM_WORLD);
+            MPI_Send(y, n, MPI_DOUBLE, dest, 0, MPI_COMM_WORLD);
+        }
+
+        if (slaves_mask[0] > 0)
+            matrix_mul_vec(A, slaves_mask[0], n, y, out_master);
+        for (int i = 0; i < slaves_mask[0]; ++i)
+            Ay[i] = out_master[i];
+
+        for (int src = 1; src < size; ++src)
+            MPI_Recv(Ay + displs[src], slaves_mask[src], MPI_DOUBLE, src, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+        double num = vec_dot(y, Ay, n);
+        double den = vec_dot(Ay, Ay, n);
+        if (fabs(den) < 1e-30)
+        {
+            status = SOL_INVALID;
+            break;
+        }
+
+        double tau = num / den;
+        for (int i = 0; i < n; ++i)
+            x[i] -= tau * y[i];
+    }
+
+    exit_slaves(rank, size);
+
+cleanup:
+    free(displs);
+    free(y);
+    free(Ay);
+    free(out_master);
+
+    return status;
 }

@@ -9,3 +9,4 @@ configure_file(gen/data.txt
                COPYONLY)
 
 target_link_libraries(lab1 PRIVATE BLAS::BLAS m)
+target_link_libraries(lab1 PRIVATE MPI::MPI_C)
