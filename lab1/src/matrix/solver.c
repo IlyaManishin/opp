@@ -146,6 +146,34 @@ static void exit_slaves(int rank, int size)
         MPI_Send(&cmd, 1, MPI_INT, dest, 0, MPI_COMM_WORLD);
 }
 
+static void distributed_matvec(
+    const double *A,
+    const int *slaves_mask,
+    int size,
+    const int *displs,
+    int n,
+    double *x,
+    double *dest,
+    double *out_master)
+{
+    int cmd = SLAVE_MUL;
+    for (int sl = 1; sl < size; ++sl)
+    {
+        MPI_Send(&cmd, 1, MPI_INT, sl, 0, MPI_COMM_WORLD);
+        MPI_Send(x, n, MPI_DOUBLE, sl, 0, MPI_COMM_WORLD);
+    }
+
+    if (slaves_mask[0] > 0)
+        matrix_mul_vec(A, slaves_mask[0], n, x, out_master);
+
+    for (int i = 0; i < slaves_mask[0]; ++i)
+        dest[i] = out_master[i];
+
+    for (int sl = 1; sl < size; ++sl)
+        MPI_Recv(dest + displs[sl], slaves_mask[sl], MPI_DOUBLE, sl, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+}
+
+
 SolverStatus solve_linear_multy(
     const int *slaves_mask,
     const double *A,
@@ -188,23 +216,20 @@ SolverStatus solve_linear_multy(
     if (norm_b < 1e-30)
         norm_b = 1.0;
 
-
     for (int iter = 0; iter < max_iters; ++iter)
     {
         int cmd = SLAVE_MUL;
-        for (int dest = 1; dest < size; ++dest)
+        for (int sl = 1; sl < size; ++sl)
         {
-            MPI_Send(&cmd, 1, MPI_INT, dest, 0, MPI_COMM_WORLD);
-            MPI_Send(x, n, MPI_DOUBLE, dest, 0, MPI_COMM_WORLD);
+            MPI_Send(&cmd, 1, MPI_INT, sl, 0, MPI_COMM_WORLD);
+            MPI_Send(x, n, MPI_DOUBLE, sl, 0, MPI_COMM_WORLD);
         }
+        matrix_mul_vec(A, slaves_mask[0], n, x, out_master);
 
-        if (slaves_mask[0] > 0)
-            matrix_mul_vec(A, slaves_mask[0], n, x, out_master);
         for (int i = 0; i < slaves_mask[0]; ++i)
             y[i] = out_master[i];
-
-        for (int src = 1; src < size; ++src)
-            MPI_Recv(y + displs[src], slaves_mask[src], MPI_DOUBLE, src, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        for (int sl = 1; sl < size; ++sl)
+            MPI_Recv(y + displs[sl], slaves_mask[sl], MPI_DOUBLE, sl, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
         for (int i = 0; i < n; ++i)
             y[i] -= b[i];
@@ -215,20 +240,19 @@ SolverStatus solve_linear_multy(
             break;
         }
 
-        for (int dest = 1; dest < size; ++dest)
+        for (int sl = 1; sl < size; ++sl)
         {
             cmd = SLAVE_MUL;
-            MPI_Send(&cmd, 1, MPI_INT, dest, 0, MPI_COMM_WORLD);
-            MPI_Send(y, n, MPI_DOUBLE, dest, 0, MPI_COMM_WORLD);
+            MPI_Send(&cmd, 1, MPI_INT, sl, 0, MPI_COMM_WORLD);
+            MPI_Send(y, n, MPI_DOUBLE, sl, 0, MPI_COMM_WORLD);
         }
 
-        if (slaves_mask[0] > 0)
-            matrix_mul_vec(A, slaves_mask[0], n, y, out_master);
+        matrix_mul_vec(A, slaves_mask[0], n, y, out_master);
         for (int i = 0; i < slaves_mask[0]; ++i)
             Ay[i] = out_master[i];
 
-        for (int src = 1; src < size; ++src)
-            MPI_Recv(Ay + displs[src], slaves_mask[src], MPI_DOUBLE, src, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        for (int sl = 1; sl < size; ++sl)
+            MPI_Recv(Ay + displs[sl], slaves_mask[sl], MPI_DOUBLE, sl, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
         double num = vec_dot(y, Ay, n);
         double den = vec_dot(Ay, Ay, n);
@@ -243,9 +267,9 @@ SolverStatus solve_linear_multy(
             x[i] -= tau * y[i];
     }
 
+cleanup:
     exit_slaves(rank, size);
 
-cleanup:
     free(displs);
     free(y);
     free(Ay);
