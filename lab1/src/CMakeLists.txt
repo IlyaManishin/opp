@@ -1,8 +1,11 @@
+add_definitions(-DMPI)
+
 add_executable(lab1
     main.c
     matrix/matrix.c
     matrix/solver.c
     utils/i_reader.c
+    utils/logger.c
 )
 configure_file(gen/data.txt
                ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data.txt

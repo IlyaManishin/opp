@@ -1,6 +1,6 @@
 import numpy as np
 
-MAT_SIZE = 1000
+MAT_SIZE = 2000
 
 def generate_and_save_data(N=MAT_SIZE, filename="data.txt"):
     A = np.ones((N, N)) + np.eye(N)

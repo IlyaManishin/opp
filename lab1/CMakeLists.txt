@@ -11,7 +11,6 @@ find_package(BLAS REQUIRED)
 find_package(MPI REQUIRED)
 
 # add_definitions(-DDEBUG)
-add_definitions(-DMPI)
 
 add_subdirectory(src/)
 

@@ -45,7 +45,7 @@ SolverStatus solve_linear_single(
     double eps,
     int max_iters)
 {
-    if (check_params(A, n, b, x, eps, max_iters))
+    if (!check_params(A, n, b, x, eps, max_iters))
         return SOL_INPUT_ERR;
 
     double *y = vector_create(n);
@@ -154,7 +154,7 @@ static void distributed_matvec(
     int n,
     double *x,
     double *dest,
-    double *out_master)
+    double *out_master)//remove this
 {
     int cmd = SLAVE_MUL;
     for (int sl = 1; sl < size; ++sl)
@@ -172,7 +172,6 @@ static void distributed_matvec(
     for (int sl = 1; sl < size; ++sl)
         MPI_Recv(dest + displs[sl], slaves_mask[sl], MPI_DOUBLE, sl, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 }
-
 
 SolverStatus solve_linear_multy(
     const int *slaves_mask,
@@ -218,18 +217,7 @@ SolverStatus solve_linear_multy(
 
     for (int iter = 0; iter < max_iters; ++iter)
     {
-        int cmd = SLAVE_MUL;
-        for (int sl = 1; sl < size; ++sl)
-        {
-            MPI_Send(&cmd, 1, MPI_INT, sl, 0, MPI_COMM_WORLD);
-            MPI_Send(x, n, MPI_DOUBLE, sl, 0, MPI_COMM_WORLD);
-        }
-        matrix_mul_vec(A, slaves_mask[0], n, x, out_master);
-
-        for (int i = 0; i < slaves_mask[0]; ++i)
-            y[i] = out_master[i];
-        for (int sl = 1; sl < size; ++sl)
-            MPI_Recv(y + displs[sl], slaves_mask[sl], MPI_DOUBLE, sl, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        distributed_matvec(A, slaves_mask, size, displs, n, x, y, out_master);
 
         for (int i = 0; i < n; ++i)
             y[i] -= b[i];
@@ -240,19 +228,7 @@ SolverStatus solve_linear_multy(
             break;
         }
 
-        for (int sl = 1; sl < size; ++sl)
-        {
-            cmd = SLAVE_MUL;
-            MPI_Send(&cmd, 1, MPI_INT, sl, 0, MPI_COMM_WORLD);
-            MPI_Send(y, n, MPI_DOUBLE, sl, 0, MPI_COMM_WORLD);
-        }
-
-        matrix_mul_vec(A, slaves_mask[0], n, y, out_master);
-        for (int i = 0; i < slaves_mask[0]; ++i)
-            Ay[i] = out_master[i];
-
-        for (int sl = 1; sl < size; ++sl)
-            MPI_Recv(Ay + displs[sl], slaves_mask[sl], MPI_DOUBLE, sl, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        distributed_matvec(A, slaves_mask, size, displs, n, y, Ay, out_master);
 
         double num = vec_dot(y, Ay, n);
         double den = vec_dot(Ay, Ay, n);

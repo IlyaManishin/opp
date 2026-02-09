@@ -1,6 +1,7 @@
 #include "config.h"
 #include "matrix/solver.h"
 #include "utils/i_reader.h"
+#include "utils/logger.h"
 
 #include <assert.h>
 #include <math.h>
@@ -95,7 +96,6 @@ int get_slave_row_count(int n, int rank, int size)
     return rows_count;
 }
 
-
 int main(int argc, char **argv)
 {
     if (argc != 2)
@@ -104,13 +104,17 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    LinearSystem data = get_linear_system(argv[1]);
+    int statusCode = EXIT_SUCCESS;
+    LinearSystem data;
+    LOG_TIME(data = get_linear_system(argv[1]);)
+    
     int n = data.n;
     double *A = data.A;
     double *b = data.b;
     double *x = (double *)malloc(n * sizeof(double));
 
     SolverStatus st;
+    bool isMaster = true;
 #ifdef MPI
     MPI_Init(&argc, &argv);
 
@@ -120,19 +124,24 @@ int main(int argc, char **argv)
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
+    log_init(rank);
+
     int *rows_mask = get_rows_mask(n, size);
     if (rank == 0)
     {
+        printf("Use MPI\n");
         st = solve_linear_multy(rows_mask, A, n, b, x, EPS, MAX_ITER);
     }
     else
     {
+        isMaster = false;
+
         int row_offset = 0;
         for (int i = 0; i < rank; i++)
         {
             row_offset += rows_mask[i];
         }
-        double* A_part = A + n * row_offset;
+        double *A_part = A + n * row_offset;
         int slave_rows = get_slave_row_count(n, rank, size);
         slave_task(A_part, n, slave_rows);
     }
@@ -140,20 +149,25 @@ int main(int argc, char **argv)
 
     MPI_Finalize();
 #else
+    printf("No use MPI\n");
     st = solve_linear_single(A, n, b, x, EPS, MAX_ITER);
 #endif
 
-    int statusCode = EXIT_SUCCESS;
-    if (st != SOL_OK)
+    if (isMaster)
     {
-        printf("\nERROR\n");
-        statusCode = EXIT_FAILURE;
+        if (st != SOL_OK)
+        {
+
+            printf("\nERROR - %d\n", (int)st);
+            statusCode = EXIT_FAILURE;
+        }
+        else
+        {
+            statusCode = checkAnswer(x, b, n) ? EXIT_SUCCESS : EXIT_FAILURE;
+            writeAnswer(x, n);
+        }
     }
-    else
-    {
-        statusCode = checkAnswer(x, b, n) ? EXIT_SUCCESS : EXIT_FAILURE;
-        writeAnswer(x, n);
-    }
+
     free(A);
     free(b);
     free(x);
