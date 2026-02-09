@@ -8,7 +8,6 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 find_package(BLAS REQUIRED)
-find_package(MPI REQUIRED)
 
 # add_definitions(-DDEBUG)
 

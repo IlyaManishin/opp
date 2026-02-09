@@ -1,5 +1,5 @@
 #include "config.h"
-#include "matrix/solver.h"
+#include "matrix/lin_solver.h"
 #include "utils/i_reader.h"
 #include "utils/logger.h"
 
@@ -157,7 +157,6 @@ int main(int argc, char **argv)
     {
         if (st != SOL_OK)
         {
-
             printf("\nERROR - %d\n", (int)st);
             statusCode = EXIT_FAILURE;
         }

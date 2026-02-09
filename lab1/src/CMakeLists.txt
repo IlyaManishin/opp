@@ -1,15 +1,20 @@
-add_definitions(-DMPI)
+add_subdirectory(utils) 
+add_subdirectory(matrix)
 
-add_executable(lab1
-    main.c
-    matrix/matrix.c
-    matrix/solver.c
-    utils/i_reader.c
-    utils/logger.c
-)
 configure_file(gen/data.txt
                ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data.txt
                COPYONLY)
 
-target_link_libraries(lab1 PRIVATE BLAS::BLAS m)
-target_link_libraries(lab1 PRIVATE MPI::MPI_C)
+find_package(MPI REQUIRED)
+
+#---------SINGLE CORE VERSION---------
+add_executable(lab1_single main.c)
+target_link_libraries(lab1_single PRIVATE matrix utils)
+target_link_libraries(lab1_single PRIVATE BLAS::BLAS MPI::MPI_C m)
+target_compile_definitions(lab1_single PRIVATE MPI)
+
+#---------MULTY CORE VERSION---------
+add_executable(lab1_multy main.c)
+target_link_libraries(lab1_multy PRIVATE matrix utils)
+target_link_libraries(lab1_multy PRIVATE BLAS::BLAS MPI::MPI_C m)
+target_compile_definitions(lab1_multy PRIVATE MPI)

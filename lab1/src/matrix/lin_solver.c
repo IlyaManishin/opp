@@ -1,4 +1,4 @@
-#include "solver.h"
+#include "lin_solver.h"
 #include "matrix.h"
 
 #include <cblas.h>
