@@ -1,1 +1,1 @@
-add_library(matrix STATIC lin_solver.c matrix.c)
+add_library(matrix STATIC matrix.c)

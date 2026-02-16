@@ -1,5 +1,5 @@
 #include "lin_solver.h"
-#include "matrix.h"
+#include "../matrix/matrix.h"
 
 #include <cblas.h>
 #include <math.h>
@@ -37,7 +37,7 @@ static bool check_params(
     return true;
 }
 
-SolverStatus solve_linear_single(
+SolverStatus solve_linear_single_impl(
     const double *A,
     int n,
     const double *b,
@@ -66,9 +66,7 @@ SolverStatus solve_linear_single(
     {
         matrix_mul_vec(A, n, n, x, y);
         for (int i = 0; i < n; i++)
-        {
             y[i] -= b[i];
-        }
 
         double norm_r = vec_norm(y, n);
         if (norm_r / norm_b < eps)
@@ -93,9 +91,7 @@ SolverStatus solve_linear_single(
         double tau = num / den;
 
         for (int i = 0; i < n; i++)
-        {
             x[i] -= tau * y[i];
-        }
     }
 
     free(y);
@@ -154,7 +150,7 @@ static void distributed_matvec(
     int n,
     double *x,
     double *dest,
-    double *out_master)//remove this
+    double *out_master) // remove this
 {
     int cmd = SLAVE_MUL;
     for (int sl = 1; sl < size; ++sl)
@@ -173,7 +169,7 @@ static void distributed_matvec(
         MPI_Recv(dest + displs[sl], slaves_mask[sl], MPI_DOUBLE, sl, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 }
 
-SolverStatus solve_linear_multy(
+SolverStatus solve_linear_multy_impl(
     const int *slaves_mask,
     const double *A,
     int n,
@@ -196,7 +192,7 @@ SolverStatus solve_linear_multy(
 
     if (size == 1)
     {
-        return solve_linear_single(A, n, b, x, eps, max_iters);
+        return solve_linear_single_impl(A, n, b, x, eps, max_iters);
     }
 
     int *displs = malloc(sizeof(int) * size);
@@ -211,18 +207,19 @@ SolverStatus solve_linear_multy(
     for (int i = 1; i < size; ++i)
         displs[i] = displs[i - 1] + slaves_mask[i - 1];
 
-    double norm_b = vec_norm(b, n);
-    if (norm_b < 1e-30)
-        norm_b = 1.0;
-
     for (int iter = 0; iter < max_iters; ++iter)
     {
+        double norm_b = vec_norm(b, n);
+        if (norm_b < 1e-30)
+            norm_b = 1.0;
+
         distributed_matvec(A, slaves_mask, size, displs, n, x, y, out_master);
 
         for (int i = 0; i < n; ++i)
             y[i] -= b[i];
 
-        if (vec_norm(y, n) / norm_b < eps)
+        double norm_r = vec_norm(y, n);
+        if (norm_r / norm_b < eps)
         {
             status = SOL_OK;
             break;

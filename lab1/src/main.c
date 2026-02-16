@@ -1,6 +1,8 @@
 #include "config.h"
-#include "matrix/lin_solver.h"
-#include "utils/i_reader.h"
+
+#include "matrix/matrix.h"
+#include "solver/lin_solver.h"
+#include "utils/io_utils.h"
 #include "utils/logger.h"
 
 #include <assert.h>
@@ -10,37 +12,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define min(a, b) ((a) < (b) ? (a) : (b))
+
+const char *SRC_PATH = "data.txt";
 const char *RES_PATH = "output.txt";
 
-LinearSystem get_linear_system(char *path)
-{
-    LinearSystem sys = read_lin_system(path);
-
-#ifdef DEBUG
-    if (sys.A && sys.b)
-    {
-        printf("Matrix A:\n");
-        for (int i = 0; i < sys.n; i++)
-        {
-            for (int j = 0; j < sys.n; j++)
-            {
-                printf("%8.4lf ", sys.A[i * sys.n + j]);
-            }
-            printf("\n");
-        }
-
-        printf("\nVector b:\n");
-        for (int i = 0; i < sys.n; i++)
-        {
-            printf("%8.4lf\n", sys.b[i]);
-        }
-        printf("\n");
-    }
-#endif
-    return sys;
-}
-
-bool checkAnswer(double *check, double *valid, int n)
+static bool checkAnswer(const double *check, const double *valid, int n)
 {
     for (int i = 0; i < n; i++)
     {
@@ -54,27 +31,13 @@ bool checkAnswer(double *check, double *valid, int n)
     return true;
 }
 
-void writeAnswer(double *x, int n)
+static int *get_tasks_displs(int n, int size)
 {
-    FILE *f = fopen(RES_PATH, "w");
-    if (!f)
-    {
-        perror("fopen");
-        return;
-    }
-    fprintf(f, "%d\n", n);
-    for (int i = 0; i < n; i++)
-    {
-        fprintf(f, "%0.8lf\n", x[i]);
-    }
-    fclose(f);
-}
+    int *displs = NULL;
 
-int *get_rows_mask(int n, int size)
-{
-    int *counts = NULL;
-
-    counts = malloc(size * sizeof(int));
+    displs = malloc(size * sizeof(int));
+    if (displs == NULL)
+        return NULL;
 
     int base = n / size;
     int rem = n % size;
@@ -82,12 +45,20 @@ int *get_rows_mask(int n, int size)
     int offset = 0;
     for (int i = 0; i < size; i++)
     {
-        counts[i] = base + (i < rem ? 1 : 0);
+        displs[i] = base + (i < rem ? 1 : 0);
     }
-    return counts;
+
+    int accum = 0;
+    for (int i = 0; i < size; i++)
+    {
+        int cur = accum;
+        accum += displs[i];
+        displs[i] = cur;
+    }
+    return displs;
 }
 
-int get_slave_row_count(int n, int rank, int size)
+static int get_slave_row_count(int n, int rank, int size)
 {
     int base = n / size;
     int rem = n % size;
@@ -96,79 +67,100 @@ int get_slave_row_count(int n, int rank, int size)
     return rows_count;
 }
 
-int main(int argc, char **argv)
+static SolverStatus solve_mpi(TLinearSystem lin_sys, double *x, int *displs, int rank, int size)
 {
-    if (argc != 2)
-    {
-        printf("Usage: %s <input_file>\n", argv[0]);
-        return 1;
-    }
+    SolverStatus st = SOL_OK;
 
-    int statusCode = EXIT_SUCCESS;
-    LinearSystem data;
-    LOG_TIME(data = get_linear_system(argv[1]);)
-    
-    int n = data.n;
-    double *A = data.A;
-    double *b = data.b;
-    double *x = (double *)malloc(n * sizeof(double));
-
-    SolverStatus st;
-    bool isMaster = true;
-#ifdef MPI
-    MPI_Init(&argc, &argv);
-
-    int rank = 0;
-    int size = 1;
-
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    double *A = lin_sys.A;
+    double *b = lin_sys.b;
+    int n = lin_sys.n;
 
     log_init(rank);
 
-    int *rows_mask = get_rows_mask(n, size);
     if (rank == 0)
     {
-        printf("Use MPI\n");
-        st = solve_linear_multy(rows_mask, A, n, b, x, EPS, MAX_ITER);
+        st = solve_linear_multy_impl(displs, A, n, b, x, EPS, MAX_ITER);
     }
     else
     {
-        isMaster = false;
-
-        int row_offset = 0;
-        for (int i = 0; i < rank; i++)
-        {
-            row_offset += rows_mask[i];
-        }
-        double *A_part = A + n * row_offset;
-        int slave_rows = get_slave_row_count(n, rank, size);
-        slave_task(A_part, n, slave_rows);
+        slave_task(A, lin_sys.n);
     }
-    free(rows_mask);
+    return st;
+}
 
-    MPI_Finalize();
+static SolverStatus solve_single(TLinearSystem lin_sys, double *x)
+{
+    double *A = lin_sys.A;
+    double *b = lin_sys.b;
+    int n = lin_sys.n;
+
+    SolverStatus st = solve_linear_single_impl(A, n, b, x, EPS, MAX_ITER);
+    return st;
+}
+
+static bool solve_linear_system()
+{
+    bool succ = true;
+    TLinearSystem lin_sys;
+    int n = get_lin_system_size(SRC_PATH);
+    double *x = vector_create(n);
+
+    SolverStatus st;
+    bool isMaster = false;
+#ifdef MPI
+    int rank = 0;
+    int size = 1;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+    if (rank == 0)
+    {
+        isMaster = true;
+        printf("Use MPI\n");
+    }
+
+    int *displs = get_tasks_displs(n, size);
+    TLoadRange range = {.A_StartRow = displs[rank],
+                        .A_EndRow = rank + 1 < size ? displs[rank + 1] : n,
+                        .b_Start = 0,
+                        .b_End = n};
+    LOG_TIME(lin_sys = read_lin_system(SRC_PATH, range);)
+    st = solve_mpi(lin_sys, x, displs, rank, size);
+
+    free(displs);
+
 #else
+    isMaster = true;
+    st = solve_single(lin_sys, x);
     printf("No use MPI\n");
-    st = solve_linear_single(A, n, b, x, EPS, MAX_ITER);
+
 #endif
 
     if (isMaster)
     {
-        if (st != SOL_OK)
+        if (st != SOL_OK || !checkAnswer(x, lin_sys.r, lin_sys.n))
         {
             printf("\nERROR - %d\n", (int)st);
-            statusCode = EXIT_FAILURE;
+            succ = false;
         }
-        else
-        {
-            statusCode = checkAnswer(x, b, n) ? EXIT_SUCCESS : EXIT_FAILURE;
-            writeAnswer(x, n);
-        }
+        writeAnswer(RES_PATH, x, n);
     }
+    free_lin_system(&lin_sys);
+    vector_free(x);
+    return succ;
+}
 
-    free(A);
-    free(b);
-    free(x);
-    return statusCode;
+static int main(int argc, char **argv)
+{
+#ifdef MPI
+    MPI_Init(&argc, &argv);
+#endif
+
+    bool res = solve_linear_system();
+
+#ifdef MPI
+    MPI_Finalize();
+#endif
+
+    return res ? EXIT_SUCCESS : EXIT_FAILURE;
 }

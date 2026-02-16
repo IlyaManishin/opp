@@ -8,7 +8,7 @@ typedef enum
     SOL_INVALID
 } SolverStatus;
 
-SolverStatus solve_linear_single(
+SolverStatus solve_linear_single_impl(
     const double *A,
     int n,
     const double *b,
@@ -21,7 +21,7 @@ void slave_task(
     int n,
     int rows);
 
-SolverStatus solve_linear_multy(
+SolverStatus solve_linear_multy_impl(
     const int *slaves_mask,
     const double *A,
     int n,

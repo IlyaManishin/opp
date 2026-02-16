@@ -1,1 +1,3 @@
-add_library(utils STATIC i_reader.c logger.c)
+add_library(utils STATIC io_utils.c logger.c)
+
+target_link_libraries(utils PRIVATE matrix)

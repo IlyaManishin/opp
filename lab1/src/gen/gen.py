@@ -14,6 +14,8 @@ def generate_and_save_data(N=MAT_SIZE, filename="data.txt"):
             f.write(" ".join(map(str, row)) + "\n")
         for val in b:
             f.write(str(val) + "\n")
+        for val in u:
+            f.write(str(val) + "\n")
             
     return u
 
