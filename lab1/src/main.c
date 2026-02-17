@@ -95,7 +95,7 @@ static SolverStatus solve_mpi(TLinearSystem lin_sys, double *x, int *displs, int
     }
     else
     {
-        // slave_task(A, lin_sys.n, *displs);
+        slave_task(lin_sys, displs);
     }
     return st;
 }
@@ -143,7 +143,7 @@ static bool solve_linear_system()
 
 #else
     printf("No use MPI\n");
-    
+
     isMaster = true;
     TLoadRange range = {.A_StartRow = 0,
                         .A_EndRow = n,

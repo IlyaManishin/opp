@@ -21,7 +21,7 @@ SolverStatus solve_linear_single_impl(
 void slave_task(TLinearSystem lin_sys, int *displs);
 
 SolverStatus solve_linear_multy_impl(
-    const int *slaves_mask,
+    const int *displs,
     const double *A,
     int n,
     const double *b,

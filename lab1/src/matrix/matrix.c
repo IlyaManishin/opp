@@ -25,22 +25,23 @@ void matrix_free(double *A)
 
 void matrix_mul_vec(const double *A, int rows, int cols, const double *x, double *y)
 {
-    cblas_dgemv(
-        CblasRowMajor,
-        CblasNoTrans,
-        rows,
-        cols,
-        1.0,
-        A,
-        cols,
-        x,
-        1,
-        0.0,
-        y,
-        1);
+    for (int i = 0; i < rows; i++)
+    {
+        double sum = 0.0;
+        for (int j = 0; j < cols; j++)
+        {
+            sum += A[i * cols + j] * x[j];
+        }
+        y[i] = sum;
+    }
 }
 
 double vec_dot(const double *u, const double *v, int n)
 {
-    return cblas_ddot(n, u, 1, v, 1);
+    double sum = 0.0;
+    for (int i = 0; i < n; i++)
+    {
+        sum += u[i] * v[i];
+    }
+    return sum;
 }

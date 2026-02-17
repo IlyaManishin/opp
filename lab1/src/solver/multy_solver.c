@@ -1,11 +1,11 @@
-#include "lin_solver.h"
 #include "../matrix/matrix.h"
 #include "../utils/io_utils.h"
+#include "lin_solver.h"
 #include "solver_math.h"
 
-#include <cblas.h>
-#include <mpi.h>
 #include <math.h>
+#include <mpi.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 enum SLAVE_COMMANDS
@@ -13,68 +13,6 @@ enum SLAVE_COMMANDS
     SLAVE_EXIT,
     SLAVE_MUL
 };
-
-SolverStatus solve_linear_single_impl(
-    const double *A,
-    int n,
-    const double *b,
-    double *x,
-    double eps,
-    int max_iters)
-{
-    if (!check_params(A, n, b, x, eps, max_iters))
-        return SOL_INPUT_ERR;
-
-    double *y = vector_create(n);
-    double *Ay = vector_create(n);
-
-    if (!y || !Ay)
-    {
-        free(y);
-        free(Ay);
-        return SOL_INVALID;
-    }
-
-    double norm_b = vec_norm(b, n);
-    if (norm_b < 1e-30)
-        norm_b = 1.0;
-
-    for (int iter = 0; iter < max_iters; iter++)
-    {
-        matrix_mul_vec(A, n, n, x, y);
-        for (int i = 0; i < n; i++)
-            y[i] -= b[i];
-
-        double norm_r = vec_norm(y, n);
-        if (norm_r / norm_b < eps)
-        {
-            vector_free(y);
-            vector_free(Ay);
-            return SOL_OK;
-        }
-
-        matrix_mul_vec(A, n, n, y, Ay);
-
-        double den = vec_dot(Ay, Ay, n);
-        double num = vec_dot(y, Ay, n);
-
-        if (fabs(num) < 1e-30)
-        {
-            vector_free(y);
-            vector_free(Ay);
-            return SOL_INVALID;
-        }
-
-        double tau = num / den;
-
-        for (int i = 0; i < n; i++)
-            x[i] -= tau * y[i];
-    }
-
-    vector_free(y);
-    vector_free(Ay);
-    return SOL_MAX_ITERS;
-}
 
 void slave_task(TLinearSystem lin_sys, int *displs)
 {
@@ -124,15 +62,14 @@ static void exit_slaves(int rank, int size)
         MPI_Send(&cmd, 1, MPI_INT, dest, 0, MPI_COMM_WORLD);
 }
 
-static void distributed_matvec(
+static void master_matvec(
     const double *A,
+    const int *displs,
     const int *slaves_mask,
     int size,
-    const int *displs,
     int n,
     double *x,
-    double *dest,
-    double *out_master) // remove this
+    double *dest)
 {
     int cmd = SLAVE_MUL;
     for (int sl = 1; sl < size; ++sl)
@@ -141,18 +78,14 @@ static void distributed_matvec(
         MPI_Send(x, n, MPI_DOUBLE, sl, 0, MPI_COMM_WORLD);
     }
 
-    if (slaves_mask[0] > 0)
-        matrix_mul_vec(A, slaves_mask[0], n, x, out_master);
-
-    for (int i = 0; i < slaves_mask[0]; ++i)
-        dest[i] = out_master[i];
+    matrix_mul_vec(A, slaves_mask[0], n, x, dest);
 
     for (int sl = 1; sl < size; ++sl)
         MPI_Recv(dest + displs[sl], slaves_mask[sl], MPI_DOUBLE, sl, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 }
 
 SolverStatus solve_linear_multy_impl(
-    const int *slaves_mask,
+    const int *displs,
     const double *A,
     int n,
     const double *b,
@@ -177,25 +110,28 @@ SolverStatus solve_linear_multy_impl(
         return solve_linear_single_impl(A, n, b, x, eps, max_iters);
     }
 
-    int *displs = malloc(sizeof(int) * size);
     double *y = malloc(sizeof(double) * n);
     double *Ay = malloc(sizeof(double) * n);
-    double *out_master = malloc(sizeof(double) * slaves_mask[0]);
+    int *slave_locals = (int *)malloc(sizeof(int) * size);
 
-    if (!displs || !y || !Ay || !out_master)
+    if (slave_locals == NULL || y == NULL || Ay == NULL)
         goto cleanup;
 
-    displs[0] = 0;
-    for (int i = 1; i < size; ++i)
-        displs[i] = displs[i - 1] + slaves_mask[i - 1];
+    for (int i = 0; i < size - 1; i++)
+    {
+        slave_locals[i] = displs[i + 1] - displs[i];
+    }
+    slave_locals[size - 1] = n - displs[size - 1];
 
     for (int iter = 0; iter < max_iters; ++iter)
     {
+        // printf("%d\n", iter);
+
         double norm_b = vec_norm(b, n);
         if (norm_b < 1e-30)
             norm_b = 1.0;
 
-        distributed_matvec(A, slaves_mask, size, displs, n, x, y, out_master);
+        master_matvec(A, displs, slave_locals, size, n, x, y);
 
         for (int i = 0; i < n; ++i)
             y[i] -= b[i];
@@ -207,7 +143,7 @@ SolverStatus solve_linear_multy_impl(
             break;
         }
 
-        distributed_matvec(A, slaves_mask, size, displs, n, y, Ay, out_master);
+        master_matvec(A, displs, slave_locals, size, n, y, Ay);
 
         double num = vec_dot(y, Ay, n);
         double den = vec_dot(Ay, Ay, n);
@@ -225,10 +161,9 @@ SolverStatus solve_linear_multy_impl(
 cleanup:
     exit_slaves(rank, size);
 
-    free(displs);
+    free(slave_locals);
     free(y);
     free(Ay);
-    free(out_master);
 
     return status;
 }
