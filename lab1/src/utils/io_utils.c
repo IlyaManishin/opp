@@ -150,7 +150,7 @@ TLinearSystem read_lin_system(const char *filename, TLoadRange range)
 error:
     free_lin_system(&sys);
     fclose(f);
-    return (TLinearSystem){0, NULL, NULL};
+    return (TLinearSystem){0, NULL, 0, NULL, 0};
 }
 
 void writeAnswer(const char *destPath, double *x, int n)

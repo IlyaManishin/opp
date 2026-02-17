@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../utils/io_utils.h"
+
 typedef enum
 {
     SOL_OK = 0,
@@ -16,10 +18,7 @@ SolverStatus solve_linear_single_impl(
     double eps,
     int max_iters);
 
-void slave_task(
-    double *A_part,
-    int n,
-    int rows);
+void slave_task(TLinearSystem lin_sys, int *displs);
 
 SolverStatus solve_linear_multy_impl(
     const int *slaves_mask,

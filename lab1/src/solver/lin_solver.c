@@ -1,5 +1,6 @@
 #include "lin_solver.h"
 #include "../matrix/matrix.h"
+#include "../utils/io_utils.h"
 
 #include <cblas.h>
 #include <math.h>
@@ -99,10 +100,15 @@ SolverStatus solve_linear_single_impl(
     return SOL_MAX_ITERS;
 }
 
-void slave_task(double *A_part, int n, int rows)
+void slave_task(TLinearSystem lin_sys, int* displs)
 {
+    int local_count = lin_sys.A_rows_count;
+    double *A_part = lin_sys.A;
+    double *b = lin_sys.b;
+    int n = lin_sys.n;
+    
     double *vec = malloc(sizeof(double) * n);
-    double *out_local = malloc(sizeof(double) * rows);
+    double *out_local = malloc(sizeof(double) * local_count);
 
     if (!vec || !out_local)
     {
@@ -123,9 +129,9 @@ void slave_task(double *A_part, int n, int rows)
         {
             MPI_Recv(vec, n, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
-            matrix_mul_vec(A_part, rows, n, vec, out_local);
+            matrix_mul_vec(A_part, local_count, n, vec, out_local);
 
-            MPI_Send(out_local, rows, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
+            MPI_Send(out_local, local_count, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
         }
     }
 

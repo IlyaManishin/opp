@@ -83,7 +83,7 @@ static SolverStatus solve_mpi(TLinearSystem lin_sys, double *x, int *displs, int
     }
     else
     {
-        slave_task(A, lin_sys.n);
+        // slave_task(A, lin_sys.n, *displs);
     }
     return st;
 }
@@ -150,7 +150,7 @@ static bool solve_linear_system()
     return succ;
 }
 
-static int main(int argc, char **argv)
+int main(int argc, char **argv)
 {
 #ifdef MPI
     MPI_Init(&argc, &argv);
