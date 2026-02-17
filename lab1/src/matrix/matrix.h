@@ -9,3 +9,4 @@ double *vector_create(int n);
 void vector_free(double* vec);
 
 void matrix_mul_vec(const double *A, int rows, int cols, const double *x, double *y);
+double vec_dot(const double *u, const double *v, int n);

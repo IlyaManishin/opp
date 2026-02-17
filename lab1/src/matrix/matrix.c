@@ -39,3 +39,8 @@ void matrix_mul_vec(const double *A, int rows, int cols, const double *x, double
         y,
         1);
 }
+
+double vec_dot(const double *u, const double *v, int n)
+{
+    return cblas_ddot(n, u, 1, v, 1);
+}
