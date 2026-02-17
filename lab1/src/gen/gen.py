@@ -3,7 +3,9 @@ import numpy as np
 MAT_SIZE = 2000
 
 def generate_and_save_data(N=MAT_SIZE, filename="data.txt"):
-    A = np.ones((N, N)) + np.eye(N)
+    M = np.random.randn(N, N)
+    A = M.T @ M + np.eye(N) * 0.1
+    # A = np.ones((N, N)) + np.eye(N)
     indices = np.arange(N)
     u = np.sin(2 * np.pi * indices / N)
     b = A @ u

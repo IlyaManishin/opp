@@ -1,7 +1,7 @@
 #include "lin_solver.h"
 #include "../matrix/matrix.h"
 #include "../utils/io_utils.h"
-#include "solver_utils.h"
+#include "solver_math.h"
 
 #include <cblas.h>
 #include <mpi.h>
@@ -48,8 +48,8 @@ SolverStatus solve_linear_single_impl(
         double norm_r = vec_norm(y, n);
         if (norm_r / norm_b < eps)
         {
-            free(y);
-            free(Ay);
+            vector_free(y);
+            vector_free(Ay);
             return SOL_OK;
         }
 
@@ -60,8 +60,8 @@ SolverStatus solve_linear_single_impl(
 
         if (fabs(num) < 1e-30)
         {
-            free(y);
-            free(Ay);
+            vector_free(y);
+            vector_free(Ay);
             return SOL_INVALID;
         }
 
@@ -71,8 +71,8 @@ SolverStatus solve_linear_single_impl(
             x[i] -= tau * y[i];
     }
 
-    free(y);
-    free(Ay);
+    vector_free(y);
+    vector_free(Ay);
     return SOL_MAX_ITERS;
 }
 

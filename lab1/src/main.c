@@ -19,14 +19,26 @@ const char *RES_PATH = "output.txt";
 
 static bool checkAnswer(const double *check, const double *valid, int n)
 {
+    double max_err = -1;
+    int max_i = -1;
+
     for (int i = 0; i < n; i++)
     {
-        if (fabs(check[i] - valid[i]) > EPS)
+        double err = fabs(check[i] - valid[i]);
+        if (err > max_err)
         {
-            printf("Invalid: %8.4lf, %8.4lf", valid[i], check[i]);
-            return false;
+            max_err = err;
+            max_i = i;
         }
     }
+
+    if (max_err > EPS)
+    {
+        printf("Invalid: max error = %.10lf at i=%d: x[%d] = %.10lf, r[%d] = %.10lf\n",
+               max_err, max_i, max_i, valid[max_i], max_i, check[max_i]);
+        return false;
+    }
+
     printf("Success\n");
     return true;
 }
@@ -130,9 +142,15 @@ static bool solve_linear_system()
     free(displs);
 
 #else
-    isMaster = true;
-    st = solve_single(lin_sys, x);
     printf("No use MPI\n");
+    
+    isMaster = true;
+    TLoadRange range = {.A_StartRow = 0,
+                        .A_EndRow = n,
+                        .b_Start = 0,
+                        .b_End = n};
+    LOG_TIME(lin_sys = read_lin_system(SRC_PATH, range);)
+    st = solve_single(lin_sys, x);
 
 #endif
 
