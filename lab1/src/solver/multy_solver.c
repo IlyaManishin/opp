@@ -36,19 +36,22 @@ void slave_task(TLinearSystem lin_sys, int *displs)
         int cmd;
         MPI_Recv(&cmd, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
-        if (cmd == SLAVE_EXIT)
-            break;
-
-        if (cmd == SLAVE_MUL)
+        switch (cmd)
         {
+        case SLAVE_EXIT:
+            goto exit;
+        case SLAVE_MUL:
             MPI_Recv(vec, n, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
             matrix_mul_vec(A_part, local_count, n, vec, out_local);
-
             MPI_Send(out_local, local_count, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
+            
+            break;
+        default:
+            goto exit;
         }
     }
 
+exit:
     free(vec);
     free(out_local);
 }
