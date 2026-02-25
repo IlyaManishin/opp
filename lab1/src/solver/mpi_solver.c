@@ -54,7 +54,7 @@ void slave_mpi_task(TLinearSystem lin_sys, int *displs)
             goto exit;
         }
     }
-    
+
 exit:
     free(vec);
     free(out_local);
@@ -69,7 +69,7 @@ static void exit_slaves(int rank, int size)
         MPI_Send(&cmd, 1, MPI_INT, dest, 0, MPI_COMM_WORLD);
 }
 
-static void mat_vec_task(
+static void master_matvec(
     const double *A,
     const int *displs,
     const int *slaves_mask,
@@ -112,8 +112,6 @@ SolverStatus master_mpi_task(
     if (size <= 0 || rank != 0)
         return SOL_INVALID;
 
-
-
     double *y = malloc(sizeof(double) * n);
     double *Ay = malloc(sizeof(double) * n);
     int *slave_locals = (int *)malloc(sizeof(int) * size);
@@ -133,7 +131,7 @@ SolverStatus master_mpi_task(
         if (norm_b < 1e-30)
             norm_b = 1.0;
 
-        mat_vec_task(A, displs, slave_locals, size, n, x, y);
+        master_matvec(A, displs, slave_locals, size, n, x, y);
 
         for (int i = 0; i < n; ++i)
             y[i] -= b[i];
@@ -145,7 +143,7 @@ SolverStatus master_mpi_task(
             break;
         }
 
-        mat_vec_task(A, displs, slave_locals, size, n, y, Ay);
+        master_matvec(A, displs, slave_locals, size, n, y, Ay);
 
         double num = vec_dot(y, Ay, n);
         double den = vec_dot(Ay, Ay, n);
