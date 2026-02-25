@@ -10,6 +10,7 @@ typedef enum
     SOL_INVALID
 } SolverStatus;
 
+//***********SIGNLE***********
 SolverStatus solve_linear_single_impl(
     const double *A,
     int n,
@@ -18,13 +19,12 @@ SolverStatus solve_linear_single_impl(
     double eps,
     int max_iters);
 
-void slave_task(TLinearSystem lin_sys, int *displs);
-
-SolverStatus solve_linear_multy_impl(
-    const int *displs,
-    const double *A,
-    int n,
-    const double *b,
+//***********MULTY***********
+SolverStatus solve_mpi_impl(
+    TLinearSystem lin_sys,
     double *x,
+    int *displs,
     double eps,
-    int max_iters);
+    int max_iters,
+    int rank,
+    int size);

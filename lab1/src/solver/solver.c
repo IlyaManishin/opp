@@ -1,7 +1,8 @@
 #include "../matrix/matrix.h"
 #include "../utils/io_utils.h"
-#include "lin_solver.h"
+#include "solver.h"
 #include "solver_math.h"
+#include "mpi_solver.h"
 
 #include <math.h>
 #include <mpi.h>
@@ -67,4 +68,36 @@ SolverStatus solve_linear_single_impl(
     vector_free(y);
     vector_free(Ay);
     return SOL_MAX_ITERS;
+}
+
+SolverStatus solve_mpi_impl(
+    TLinearSystem lin_sys,
+    double *x,
+    int *displs,
+    double eps,
+    int max_iters,
+    int rank,
+    int size)
+{
+    SolverStatus st = SOL_OK;
+
+    double *A = lin_sys.A;
+    double *b = lin_sys.b;
+    int n = lin_sys.n;
+
+
+    if (size == 1)
+    {
+        return solve_linear_single_impl(A, n, b, x, eps, max_iters);
+    }
+
+    if (rank == 0)
+    {
+        st = master_mpi_task(displs, A, n, b, x, eps, max_iters);
+    }
+    else
+    {
+        slave_mpi_task(lin_sys, displs);
+    }
+    return st;
 }

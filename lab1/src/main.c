@@ -1,7 +1,7 @@
 #include "config.h"
 
 #include "matrix/matrix.h"
-#include "solver/lin_solver.h"
+#include "solver/solver.h"
 #include "utils/io_utils.h"
 #include "utils/logger.h"
 
@@ -81,22 +81,8 @@ static int get_slave_row_count(int n, int rank, int size)
 
 static SolverStatus solve_mpi(TLinearSystem lin_sys, double *x, int *displs, int rank, int size)
 {
-    SolverStatus st = SOL_OK;
-
-    double *A = lin_sys.A;
-    double *b = lin_sys.b;
-    int n = lin_sys.n;
-
     log_init(rank);
-
-    if (rank == 0)
-    {
-        st = solve_linear_multy_impl(displs, A, n, b, x, EPS, MAX_ITER);
-    }
-    else
-    {
-        slave_task(lin_sys, displs);
-    }
+    SolverStatus st = solve_mpi_impl(lin_sys, x, displs, EPS, MAX_ITER, rank, size);
     return st;
 }
 

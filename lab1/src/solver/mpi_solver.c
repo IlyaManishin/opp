@@ -1,6 +1,6 @@
 #include "../matrix/matrix.h"
 #include "../utils/io_utils.h"
-#include "lin_solver.h"
+#include "solver.h"
 #include "solver_math.h"
 
 #include <math.h>
@@ -14,12 +14,16 @@ enum SLAVE_COMMANDS
     SLAVE_MUL
 };
 
-void slave_task(TLinearSystem lin_sys, int *displs)
+void slave_mpi_task(TLinearSystem lin_sys, int *displs)
 {
-    int local_count = lin_sys.A_rows_count;
+    int rank = 0, size = 1;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+
     double *A_part = lin_sys.A;
     double *b = lin_sys.b;
     int n = lin_sys.n;
+    int local_count = rank + 1 < size ? displs[rank + 1] - displs[rank] : n - displs[rank];
 
     double *vec = malloc(sizeof(double) * n);
     double *out_local = malloc(sizeof(double) * local_count);
@@ -44,13 +48,13 @@ void slave_task(TLinearSystem lin_sys, int *displs)
             MPI_Recv(vec, n, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
             matrix_mul_vec(A_part, local_count, n, vec, out_local);
             MPI_Send(out_local, local_count, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
-            
+
             break;
         default:
             goto exit;
         }
     }
-
+    
 exit:
     free(vec);
     free(out_local);
@@ -65,7 +69,7 @@ static void exit_slaves(int rank, int size)
         MPI_Send(&cmd, 1, MPI_INT, dest, 0, MPI_COMM_WORLD);
 }
 
-static void master_matvec(
+static void mat_vec_task(
     const double *A,
     const int *displs,
     const int *slaves_mask,
@@ -87,7 +91,7 @@ static void master_matvec(
         MPI_Recv(dest + displs[sl], slaves_mask[sl], MPI_DOUBLE, sl, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 }
 
-SolverStatus solve_linear_multy_impl(
+SolverStatus master_mpi_task(
     const int *displs,
     const double *A,
     int n,
@@ -108,10 +112,7 @@ SolverStatus solve_linear_multy_impl(
     if (size <= 0 || rank != 0)
         return SOL_INVALID;
 
-    if (size == 1)
-    {
-        return solve_linear_single_impl(A, n, b, x, eps, max_iters);
-    }
+
 
     double *y = malloc(sizeof(double) * n);
     double *Ay = malloc(sizeof(double) * n);
@@ -128,13 +129,11 @@ SolverStatus solve_linear_multy_impl(
 
     for (int iter = 0; iter < max_iters; ++iter)
     {
-        // printf("%d\n", iter);
-
         double norm_b = vec_norm(b, n);
         if (norm_b < 1e-30)
             norm_b = 1.0;
 
-        master_matvec(A, displs, slave_locals, size, n, x, y);
+        mat_vec_task(A, displs, slave_locals, size, n, x, y);
 
         for (int i = 0; i < n; ++i)
             y[i] -= b[i];
@@ -146,7 +145,7 @@ SolverStatus solve_linear_multy_impl(
             break;
         }
 
-        master_matvec(A, displs, slave_locals, size, n, y, Ay);
+        mat_vec_task(A, displs, slave_locals, size, n, y, Ay);
 
         double num = vec_dot(y, Ay, n);
         double den = vec_dot(Ay, Ay, n);

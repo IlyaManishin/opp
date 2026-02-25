@@ -3,11 +3,7 @@
 typedef struct {
     int n;     
     double *A; 
-    int A_rows_count;
-
     double *b;
-    int b_rows_count;
-    
     double *r;
 } TLinearSystem;
 

@@ -64,7 +64,7 @@ static bool read_vector_part(FILE *f, double *v, int n, int start, int end)
 
 TLinearSystem read_lin_system(const char *filename, TLoadRange range)
 {
-    TLinearSystem sys = {0, NULL, 0, NULL, 0};
+    TLinearSystem sys = {0, NULL, NULL, NULL};
 
     FILE *f = fopen(filename, "r");
     if (!f)
@@ -95,9 +95,6 @@ TLinearSystem read_lin_system(const char *filename, TLoadRange range)
     sys.A = matrix_create(local_A, n);
     sys.b = vector_create(local_b);
     sys.r = vector_create(local_b);
-
-    sys.A_rows_count = local_A;
-    sys.b_rows_count = local_b;
 
     if (sys.A == NULL || sys.b == NULL || sys.r == NULL)
     {
@@ -150,7 +147,7 @@ TLinearSystem read_lin_system(const char *filename, TLoadRange range)
 error:
     free_lin_system(&sys);
     fclose(f);
-    return (TLinearSystem){0, NULL, 0, NULL, 0};
+    return (TLinearSystem){0, NULL, NULL, NULL};
 }
 
 void writeAnswer(const char *destPath, double *x, int n)
