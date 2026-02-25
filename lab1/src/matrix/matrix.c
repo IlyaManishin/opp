@@ -23,12 +23,12 @@ void matrix_free(double *A)
     free(A);
 }
 
-void matrix_mul_vec(const double *A, int rows, int cols, const double *x, double *y)
+void matrix_mul_vec(const double *A, int rows, int cols, int v_size, const double *x, double *y)
 {
     for (int i = 0; i < rows; i++)
     {
         double sum = 0.0;
-        for (int j = 0; j < cols; j++)
+        for (int j = 0; j < v_size; j++)
         {
             sum += A[i * cols + j] * x[j];
         }

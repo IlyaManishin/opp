@@ -35,7 +35,7 @@ SolverStatus solve_linear_single_impl(
 
     for (int iter = 0; iter < max_iters; iter++)
     {
-        matrix_mul_vec(A, n, n, x, y);
+        matrix_mul_vec(A, n, n, n, x, y);
         for (int i = 0; i < n; i++)
             y[i] -= b[i];
 
@@ -47,7 +47,7 @@ SolverStatus solve_linear_single_impl(
             return SOL_OK;
         }
 
-        matrix_mul_vec(A, n, n, y, Ay);
+        matrix_mul_vec(A, n, n, n, y, Ay);
 
         double den = vec_dot(Ay, Ay, n);
         double num = vec_dot(y, Ay, n);

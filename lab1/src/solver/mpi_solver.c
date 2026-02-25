@@ -46,7 +46,7 @@ void slave_mpi_task(TLinearSystem lin_sys, int *displs)
             goto exit;
         case SLAVE_MUL:
             MPI_Recv(vec, n, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            matrix_mul_vec(A_part, local_count, n, vec, out_local);
+            matrix_mul_vec(A_part, local_count, n, n, vec, out_local);
             MPI_Send(out_local, local_count, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
 
             break;
@@ -85,7 +85,7 @@ static void master_matvec(
         MPI_Send(x, n, MPI_DOUBLE, sl, 0, MPI_COMM_WORLD);
     }
 
-    matrix_mul_vec(A, slaves_mask[0], n, x, dest);
+    matrix_mul_vec(A, slaves_mask[0],n, n, x, dest);
 
     for (int sl = 1; sl < size; ++sl)
         MPI_Recv(dest + displs[sl], slaves_mask[sl], MPI_DOUBLE, sl, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
