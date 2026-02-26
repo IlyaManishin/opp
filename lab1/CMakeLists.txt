@@ -8,7 +8,7 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 find_package(BLAS REQUIRED)
-
+include_directories(src/include)
 # add_definitions(-DDEBUG)
 
 add_subdirectory(src/)

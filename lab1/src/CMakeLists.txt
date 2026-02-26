@@ -10,12 +10,15 @@ find_package(MPI REQUIRED)
 
 #---------SINGLE CORE VERSION---------
 add_executable(lab1_single main.c)
-target_link_libraries(lab1_single PRIVATE matrix utils solver)
-target_link_libraries(lab1_single PRIVATE BLAS::BLAS MPI::MPI_C m)
-# target_compile_definitions(lab1_single PRIVATE MPI)
+target_link_libraries(lab1_single PRIVATE matrix utils solver_single)
+target_link_libraries(lab1_single PRIVATE m)
 
 #---------MULTY CORE VERSION---------
+
+#____COMMON_DATA____
 add_executable(lab1_multy main.c)
-target_link_libraries(lab1_multy PRIVATE matrix utils solver)
-target_link_libraries(lab1_multy PRIVATE BLAS::BLAS MPI::MPI_C m)
+target_link_libraries(lab1_multy PRIVATE matrix utils solver_mpi_comm)
+target_link_libraries(lab1_multy PRIVATE MPI::MPI_C m)
 target_compile_definitions(lab1_multy PRIVATE MPI)
+
+#____SPLITTED_DATA____

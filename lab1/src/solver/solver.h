@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../utils/io_utils.h"
+#include "io_utils.h"
 
 typedef enum
 {
@@ -19,6 +19,8 @@ SolverStatus solve_linear_single_impl(
     double eps,
     int max_iters);
 
+#ifdef MPI
+
 //***********MULTY***********
 SolverStatus solve_mpi_impl(
     TLinearSystem lin_sys,
@@ -28,3 +30,5 @@ SolverStatus solve_mpi_impl(
     int max_iters,
     int rank,
     int size);
+
+#endif

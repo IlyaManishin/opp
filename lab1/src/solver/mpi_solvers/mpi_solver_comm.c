@@ -1,7 +1,8 @@
-#include "../matrix/matrix.h"
-#include "../utils/io_utils.h"
-#include "solver.h"
-#include "solver_math.h"
+#include "../solver_math.h"
+#include "../solver.h"
+
+#include "matrix.h"
+#include "io_utils.h"
 
 #include <math.h>
 #include <mpi.h>

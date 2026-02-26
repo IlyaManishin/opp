@@ -1,6 +1,5 @@
-#include "../matrix/matrix.h"
+#include "matrix.h"
 
-#include <cblas.h>
 #include <math.h>
 
 double vec_norm(const double *v, int n)

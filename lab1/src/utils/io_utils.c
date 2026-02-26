@@ -1,5 +1,5 @@
 #include "io_utils.h"
-#include "../matrix/matrix.h"
+#include "matrix.h"
 
 #include <stdio.h>
 #include <stdlib.h>

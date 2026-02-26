@@ -1,9 +1,9 @@
 #include "config.h"
-
-#include "matrix/matrix.h"
 #include "solver/solver.h"
-#include "utils/io_utils.h"
-#include "utils/logger.h"
+
+#include "matrix.h"
+#include "io_utils.h"
+#include "logger.h"
 
 #include <assert.h>
 #include <math.h>
@@ -43,6 +43,16 @@ static bool checkAnswer(const double *check, const double *valid, int n)
     return true;
 }
 
+
+#ifdef MPI
+
+static SolverStatus solve_mpi(TLinearSystem lin_sys, double *x, int *displs, int rank, int size)
+{
+    log_init(rank);
+    SolverStatus st = solve_mpi_impl(lin_sys, x, displs, EPS, MAX_ITER, rank, size);
+    return st;
+}
+
 static int *get_tasks_displs(int n, int size)
 {
     int *displs = NULL;
@@ -79,12 +89,7 @@ static int get_slave_row_count(int n, int rank, int size)
     return rows_count;
 }
 
-static SolverStatus solve_mpi(TLinearSystem lin_sys, double *x, int *displs, int rank, int size)
-{
-    log_init(rank);
-    SolverStatus st = solve_mpi_impl(lin_sys, x, displs, EPS, MAX_ITER, rank, size);
-    return st;
-}
+#endif
 
 static SolverStatus solve_single(TLinearSystem lin_sys, double *x)
 {

@@ -1,6 +1,8 @@
 #pragma once
 
-#include "solver.h"
+#include "io_utils.h"
+#include "../solver.h"
+
 
 void slave_mpi_task(TLinearSystem lin_sys, int *displs);
 
