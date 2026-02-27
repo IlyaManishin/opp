@@ -13,7 +13,7 @@ add_library(solver_single STATIC $<TARGET_OBJECTS:solver_base>)
 add_library(solver_mpi_comm STATIC $<TARGET_OBJECTS:solver_base> solver_mpi.c mpi_solvers/mpi_solver_comm.c)
 
 # add_library(solver_mpi_comm STATIC mpi_solvers/mpi_solver_comm.c)
-# target_link_libraries(solver_mpi_comm PUBLIC solver_mpi_base)
+target_link_libraries(solver_mpi_comm PUBLIC solver_mpi_base)
 
 # add_library(solver_split STATIC mpi_solvers/mpi_solver_split.c mpi_solvers/split_tasks.c)
 # target_link_libraries(solver_split PUBLIC solver_base)
