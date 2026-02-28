@@ -1,8 +1,8 @@
-#include "solver_math.h"
+#include "utils.h"
+#include "solver.h"
 
 #include "io_utils.h"
 #include "matrix.h"
-#include "solver.h"
 
 #include <math.h>
 #include <stdlib.h>
