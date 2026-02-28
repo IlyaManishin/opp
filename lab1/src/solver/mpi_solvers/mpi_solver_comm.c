@@ -1,4 +1,4 @@
-#include "../solver_math.h"
+#include "../utils.h"
 #include "../solver.h"
 
 #include "matrix.h"

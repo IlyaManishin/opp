@@ -2,11 +2,6 @@
 
 #include <math.h>
 
-double vec_norm(const double *v, int n)
-{
-    return sqrt(vec_dot(v, v, n));
-}
-
 bool check_params(
     const double *A,
     int n,

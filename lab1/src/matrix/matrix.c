@@ -1,5 +1,6 @@
 #include <cblas.h>
 #include <stdlib.h>
+#include <math.h>
 
 #include "matrix.h"
 
@@ -36,6 +37,15 @@ void matrix_mul_vec(const double *A, int rows, int cols, int v_size, const doubl
     }
 }
 
+
+void vec_add(const double *u, const double *v, double *res, int n)
+{
+    for (int i = 0; i < n; i++)
+    {
+        res[i] = u[i] + v[i];
+    }
+}
+
 double vec_dot(const double *u, const double *v, int n)
 {
     double sum = 0.0;
@@ -44,4 +54,9 @@ double vec_dot(const double *u, const double *v, int n)
         sum += u[i] * v[i];
     }
     return sum;
+}
+
+double vec_norm(const double *v, int n)
+{
+    return sqrt(vec_dot(v, v, n));
 }
