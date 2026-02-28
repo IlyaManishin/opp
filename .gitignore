@@ -5,4 +5,4 @@
 **/log.txt
 **/data.txt
 **/*.backup
-lab1/src/solver/check.c
+lab1/tests/check.c

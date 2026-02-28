@@ -4,6 +4,7 @@ void mat_vec_task(
     int rank,
     int size,
     int *displs,
+    int maxLocal,
     int n,
 
     double *mat_part,

@@ -9,6 +9,7 @@ void mat_vec_task(
     int rank,
     int size,
     int *displs,
+    int maxLocal,
     int n,
 
     double *mat_part,
@@ -33,10 +34,19 @@ void mat_vec_task(
         matrix_mul_vec(mat_part + displs[curPart], locCount, n, locCount, v_part, d_buf);
         vec_add(d_buf, d_part, d_part, locCount);
 
-        MPI_Send(v_part, locCount, MPI_DOUBLE, nextRank, 0, MPI_COMM_WORLD);
+        // MPI_Send(v_part, locCount, MPI_DOUBLE, nextRank, 0, MPI_COMM_WORLD);
+        // MPI_Recv(v_part, befCount, MPI_DOUBLE, befRank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
-        MPI_Recv(v_part, befCount, MPI_DOUBLE, befRank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
+        MPI_Sendrecv_replace(
+            v_part, 
+            maxLocal,      
+            MPI_DOUBLE, 
+            nextRank, 0,    
+            befRank, 0,     
+            MPI_COMM_WORLD, 
+            MPI_STATUS_IGNORE
+        );
+        
         curPart = befPart;
         befPart = (rank - i - 1 + size) % size;
     }

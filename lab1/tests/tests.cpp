@@ -15,7 +15,7 @@ TEST(MatVecParallel, AccuracyTest)
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    int n = 8;
+    int n = 16;
     int *displs = (int *)malloc(size * sizeof(int));
     int *counts = (int *)malloc(size * sizeof(int));
 
@@ -70,7 +70,7 @@ TEST(MatVecParallel, AccuracyTest)
     MPI_Scatterv(A_full, m_counts, m_displs, MPI_DOUBLE, mat_part, my_count * n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     MPI_Scatterv(v_full, counts, displs, MPI_DOUBLE, v_part, my_count, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
-    mat_vec_task(rank, size, displs, n, mat_part, v_part, d_part, d_buf);
+    mat_vec_task(rank, size, displs, max_count, n, mat_part, v_part, d_part, d_buf);
 
     double *final_res = NULL;
     if (rank == 0)
