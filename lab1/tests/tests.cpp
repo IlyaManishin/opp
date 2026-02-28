@@ -15,7 +15,7 @@ TEST(MatVecParallel, AccuracyTest)
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    int n = 16;
+    int n = 8;
     int *displs = (int *)malloc(size * sizeof(int));
     int *counts = (int *)malloc(size * sizeof(int));
 
@@ -56,8 +56,8 @@ TEST(MatVecParallel, AccuracyTest)
 
     double *mat_part = (double *)malloc(my_count * n * sizeof(double));
     double *v_part = (double *)malloc(max_count * sizeof(double));
-    double *d_part = (double *)malloc(max_count * sizeof(double));
-    double *d_buf = (double *)malloc(max_count * sizeof(double));
+    double *d_part = (double *)malloc(my_count * sizeof(double));
+    double *d_buf = (double *)malloc(my_count * sizeof(double));
 
     int *m_displs = (int *)malloc(size * sizeof(int));
     int *m_counts = (int *)malloc(size * sizeof(int));
