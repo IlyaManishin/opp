@@ -15,24 +15,24 @@ enum SLAVE_COMMANDS
     SLAVE_MUL
 };
 
-void slave_mpi_task(TLinearSystem lin_sys, int *displs)
+void slave_mpi_task(TLinearSystem linSys, int *displs)
 {
     int rank = 0, size = 1;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    double *A_part = lin_sys.A;
-    double *b = lin_sys.b;
-    int n = lin_sys.n;
-    int local_count = rank + 1 < size ? displs[rank + 1] - displs[rank] : n - displs[rank];
+    double *A_part = linSys.A;
+    double *b = linSys.b;
+    int n = linSys.n;
+    int localCount = rank + 1 < size ? displs[rank + 1] - displs[rank] : n - displs[rank];
 
     double *vec = malloc(sizeof(double) * n);
-    double *out_local = malloc(sizeof(double) * local_count);
+    double *outLocal = malloc(sizeof(double) * localCount);
 
-    if (!vec || !out_local)
+    if (!vec || !outLocal)
     {
         free(vec);
-        free(out_local);
+        free(outLocal);
         return;
     }
 
@@ -47,8 +47,8 @@ void slave_mpi_task(TLinearSystem lin_sys, int *displs)
             goto exit;
         case SLAVE_MUL:
             MPI_Recv(vec, n, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            matrix_mul_vec(A_part, local_count, n, n, vec, out_local);
-            MPI_Send(out_local, local_count, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
+            matrix_mul_vec(A_part, localCount, n, n, vec, outLocal);
+            MPI_Send(outLocal, localCount, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
 
             break;
         default:
@@ -58,7 +58,7 @@ void slave_mpi_task(TLinearSystem lin_sys, int *displs)
 
 exit:
     free(vec);
-    free(out_local);
+    free(outLocal);
 }
 
 static void exit_slaves(int rank, int size)
@@ -66,6 +66,7 @@ static void exit_slaves(int rank, int size)
     if (MPI_Comm_rank(MPI_COMM_WORLD, &rank) != 0)
         return;
     int cmd = SLAVE_EXIT;
+    // MPI_Bcast(&cmd, 1, MPI_INT, 0, MPI_COMM_WORLD);
     for (int dest = 1; dest < size; ++dest)
         MPI_Send(&cmd, 1, MPI_INT, dest, 0, MPI_COMM_WORLD);
 }
@@ -73,7 +74,7 @@ static void exit_slaves(int rank, int size)
 static void master_matvec(
     const double *A,
     const int *displs,
-    const int *slaves_mask,
+    const int *slavesMask,
     int size,
     int n,
     double *x,
@@ -86,24 +87,26 @@ static void master_matvec(
         MPI_Send(x, n, MPI_DOUBLE, sl, 0, MPI_COMM_WORLD);
     }
 
-    matrix_mul_vec(A, slaves_mask[0],n, n, x, dest);
+    matrix_mul_vec(A, slavesMask[0],n, n, x, dest);
 
     for (int sl = 1; sl < size; ++sl)
-        MPI_Recv(dest + displs[sl], slaves_mask[sl], MPI_DOUBLE, sl, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(dest + displs[sl], slavesMask[sl], MPI_DOUBLE, sl, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 }
 
 SolverStatus master_mpi_task(
-    const int *displs,
-    const double *A,
-    int n,
-    const double *b,
+    TLinearSystem linSys,
     double *x,
+    const int *displs,
     double eps,
-    int max_iters)
+    int maxIters)
 {
     SolverStatus status = SOL_INVALID;
 
-    if (!check_params(A, n, b, x, eps, max_iters))
+    double *A_part = linSys.A;
+    double *b = linSys.b;
+    int n = linSys.n;
+    
+    if (!check_params(A_part, n, b, x, eps, maxIters))
         return SOL_INPUT_ERR;
 
     int rank = 0, size = 1;
@@ -126,25 +129,25 @@ SolverStatus master_mpi_task(
     }
     slave_locals[size - 1] = n - displs[size - 1];
 
-    for (int iter = 0; iter < max_iters; ++iter)
+    for (int iter = 0; iter < maxIters; ++iter)
     {
         double norm_b = vec_norm(b, n);
         if (norm_b < 1e-30)
             norm_b = 1.0;
 
-        master_matvec(A, displs, slave_locals, size, n, x, y);
+        master_matvec(A_part, displs, slave_locals, size, n, x, y);
 
         for (int i = 0; i < n; ++i)
             y[i] -= b[i];
 
-        double norm_r = vec_norm(y, n);
-        if (norm_r / norm_b < eps)
+        double norm_y = vec_norm(y, n);
+        if (norm_y / norm_b < eps)
         {
             status = SOL_OK;
             break;
         }
 
-        master_matvec(A, displs, slave_locals, size, n, y, Ay);
+        master_matvec(A_part, displs, slave_locals, size, n, y, Ay);
 
         double num = vec_dot(y, Ay, n);
         double den = vec_dot(Ay, Ay, n);

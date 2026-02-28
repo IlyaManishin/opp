@@ -1,16 +1,15 @@
 #pragma once
 
-#include "io_utils.h"
 #include "../solver.h"
+#include "io_utils.h"
 
-
-void slave_mpi_task(TLinearSystem lin_sys, int *displs);
+void slave_mpi_task(
+    TLinearSystem linSys,
+    int *displs);
 
 SolverStatus master_mpi_task(
-    const int *displs,
-    const double *A,
-    int n,
-    const double *b,
+    TLinearSystem linSys,
     double *x,
+    const int *displs,
     double eps,
-    int max_iters);
+    int maxIters);

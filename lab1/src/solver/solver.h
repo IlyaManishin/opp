@@ -12,22 +12,20 @@ typedef enum
 
 //***********SIGNLE***********
 SolverStatus solve_linear_single_impl(
-    const double *A,
-    int n,
-    const double *b,
+    TLinearSystem linSys,
     double *x,
     double eps,
-    int max_iters);
+    int maxIters);
 
 #ifdef MPI
 
 //***********MULTY***********
 SolverStatus solve_mpi_impl(
-    TLinearSystem lin_sys,
+    TLinearSystem linSys,
     double *x,
     int *displs,
     double eps,
-    int max_iters,
+    int maxIters,
     int rank,
     int size);
 

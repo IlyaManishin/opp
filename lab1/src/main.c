@@ -46,13 +46,6 @@ static bool checkAnswer(const double *check, const double *valid, int n)
 
 #ifdef MPI
 
-static SolverStatus solve_mpi(TLinearSystem lin_sys, double *x, int *displs, int rank, int size)
-{
-    log_init(rank);
-    SolverStatus st = solve_mpi_impl(lin_sys, x, displs, EPS, MAX_ITER, rank, size);
-    return st;
-}
-
 static int *get_tasks_displs(int n, int size)
 {
     int *displs = NULL;
@@ -91,20 +84,20 @@ static int get_slave_row_count(int n, int rank, int size)
 
 #endif
 
-static SolverStatus solve_single(TLinearSystem lin_sys, double *x)
+static SolverStatus solve_single(TLinearSystem linSys, double *x)
 {
-    double *A = lin_sys.A;
-    double *b = lin_sys.b;
-    int n = lin_sys.n;
+    double *A = linSys.A;
+    double *b = linSys.b;
+    int n = linSys.n;
 
-    SolverStatus st = solve_linear_single_impl(A, n, b, x, EPS, MAX_ITER);
+    SolverStatus st = solve_linear_single_impl(linSys, x, EPS, MAX_ITER);
     return st;
 }
 
 static bool solve_linear_system()
 {
     bool succ = true;
-    TLinearSystem lin_sys;
+    TLinearSystem linSys;
     int n = get_lin_system_size(SRC_PATH);
     double *x = vector_create(n);
 
@@ -121,14 +114,15 @@ static bool solve_linear_system()
         isMaster = true;
         printf("Use MPI\n");
     }
+    log_init(rank);
 
     int *displs = get_tasks_displs(n, size);
     TLoadRange range = {.A_StartRow = displs[rank],
                         .A_EndRow = rank + 1 < size ? displs[rank + 1] : n,
                         .b_Start = 0,
                         .b_End = n};
-    LOG_TIME(lin_sys = read_lin_system(SRC_PATH, range);)
-    st = solve_mpi(lin_sys, x, displs, rank, size);
+    LOG_TIME(linSys = read_lin_system(SRC_PATH, range);)
+    st = solve_mpi_impl(linSys, x, displs, EPS, MAX_ITER, rank, size);
 
     free(displs);
 
@@ -140,21 +134,21 @@ static bool solve_linear_system()
                         .A_EndRow = n,
                         .b_Start = 0,
                         .b_End = n};
-    LOG_TIME(lin_sys = read_lin_system(SRC_PATH, range);)
-    st = solve_single(lin_sys, x);
+    LOG_TIME(linSys = read_lin_system(SRC_PATH, range);)
+    st = solve_single(linSys, x);
 
 #endif
 
     if (isMaster)
     {
-        if (st != SOL_OK || !checkAnswer(x, lin_sys.r, lin_sys.n))
+        if (st != SOL_OK || !checkAnswer(x, linSys.r, linSys.n))
         {
             printf("\nERROR - %d\n", (int)st);
             succ = false;
         }
         writeAnswer(RES_PATH, x, n);
     }
-    free_lin_system(&lin_sys);
+    free_lin_system(&linSys);
     vector_free(x);
     return succ;
 }

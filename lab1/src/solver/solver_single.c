@@ -1,5 +1,5 @@
-#include "utils.h"
 #include "solver.h"
+#include "utils.h"
 
 #include "io_utils.h"
 #include "matrix.h"
@@ -8,14 +8,16 @@
 #include <stdlib.h>
 
 SolverStatus solve_linear_single_impl(
-    const double *A,
-    int n,
-    const double *b,
+    TLinearSystem linSys,
     double *x,
     double eps,
-    int max_iters)
+    int maxIters)
 {
-    if (!check_params(A, n, b, x, eps, max_iters))
+    double *A = linSys.A;
+    double *b = linSys.b;
+    int n = linSys.n;
+
+    if (!check_params(A, n, b, x, eps, maxIters))
         return SOL_INPUT_ERR;
 
     double *y = vector_create(n);
@@ -32,14 +34,14 @@ SolverStatus solve_linear_single_impl(
     if (norm_b < 1e-30)
         norm_b = 1.0;
 
-    for (int iter = 0; iter < max_iters; iter++)
+    for (int iter = 0; iter < maxIters; iter++)
     {
         matrix_mul_vec(A, n, n, n, x, y);
         for (int i = 0; i < n; i++)
             y[i] -= b[i];
 
-        double norm_r = vec_norm(y, n);
-        if (norm_r / norm_b < eps)
+        double norm_y = vec_norm(y, n);
+        if (norm_y / norm_b < eps)
         {
             vector_free(y);
             vector_free(Ay);
@@ -68,4 +70,3 @@ SolverStatus solve_linear_single_impl(
     vector_free(Ay);
     return SOL_MAX_ITERS;
 }
-
