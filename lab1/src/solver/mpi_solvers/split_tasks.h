@@ -8,4 +8,5 @@ void mat_vec_task(
 
     double *mat_part,
     double *v_part,
-    double *d_part);
+    double *d_part,
+    double *d_buf);
