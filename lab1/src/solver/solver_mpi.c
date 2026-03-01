@@ -17,6 +17,8 @@ SolverStatus solve_mpi_impl(
     int size)
 {
     SolverStatus st = SOL_OK;
+    if (linSys.n == 0)
+        return st;
 
     if (size == 1)
         return solve_linear_single_impl(linSys, x, eps, maxIters);
