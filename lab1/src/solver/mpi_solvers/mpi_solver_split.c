@@ -33,7 +33,7 @@ typedef struct TTaskContext
     double *b_part;
     int n;
     double eps;
-    int *localCounts; //???
+    int *localCounts;
     int localCount;
     int maxLocal;
 

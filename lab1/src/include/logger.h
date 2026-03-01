@@ -21,7 +21,7 @@ void log_message(LogLevel level, const char *msg);
         clock_t start = clock();                                                                                           \
         stmt;                                                                                                              \
         clock_t end = clock();                                                                                             \
-        char buf[100];                                                                                                     \
+        char buf[500];                                                                                                     \
         snprintf(buf, sizeof(buf), "Execution time of `" #stmt "`: %.6f seconds", (double)(end - start) / CLOCKS_PER_SEC); \
         log_message(LOG_INFO, buf);                                                                                        \
     } while (0);

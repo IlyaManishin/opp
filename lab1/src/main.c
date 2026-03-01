@@ -43,6 +43,7 @@ static bool checkAnswer(const double *check, const double *valid, int n)
     return true;
 }
 
+
 #ifdef MPI
 
 static int *get_tasks_displs(int n, int size)
@@ -76,12 +77,10 @@ static int *get_tasks_displs(int n, int size)
 static bool solve_linear_system()
 {
     bool succ = true;
-    TLinearSystem linSys;
-    int n = get_lin_system_size(SRC_PATH);
-    double *x = vector_create(n);
-
+    bool isMaster = true;
     SolverStatus st;
-    bool isMaster = false;
+    TLinearSystem linSys;
+
 #ifdef MPI
     int rank = 0;
     int size = 0;
@@ -90,15 +89,20 @@ static bool solve_linear_system()
     if (size == 0)
     {
         printf("Mpi error: invalid size");
-        succ = false;
-        goto exit;
+        return false;
     }
+#endif
+    
+    int n = get_lin_system_size(SRC_PATH);
+    double *x = vector_create(n);
 
-    if (rank == 0)
-    {
-        isMaster = true;
+#ifdef MPI
+    
+    if (rank != 0)
+        isMaster = false;
+    else
         printf("Use MPI\n");
-    }
+
     log_init(rank);
 
     int *displs = get_tasks_displs(n, size);
@@ -106,15 +110,14 @@ static bool solve_linear_system()
                         .A_EndRow = rank + 1 < size ? displs[rank + 1] : n,
                         .b_Start = 0,
                         .b_End = n};
-    LOG_TIME(linSys = read_lin_system(SRC_PATH, range);)
-    st = solve_mpi_impl(linSys, x, displs, EPS, MAX_ITER, rank, size);
+    LOG_TIME(linSys = read_lin_system(SRC_PATH, range));
+    LOG_TIME(st = solve_mpi_impl(linSys, x, displs, EPS, MAX_ITER, rank, size));
 
     free(displs);
 
 #else
-    printf("No use MPI\n");
+    printf("Don't use MPI\n");
 
-    isMaster = true;
     TLoadRange range = {.A_StartRow = 0,
                         .A_EndRow = n,
                         .b_Start = 0,
@@ -126,15 +129,17 @@ static bool solve_linear_system()
 
     if (isMaster)
     {
-        if (st != SOL_OK || !checkAnswer(x, linSys.r, linSys.n))
+        if (st != SOL_OK)
         {
             printf("\nERROR - %d\n", (int)st);
             succ = false;
         }
+        
+        checkAnswer(x, linSys.r, linSys.n);
+            
         writeAnswer(RES_PATH, x, n);
     }
 
-exit:
     free_lin_system(&linSys);
     vector_free(x);
     return succ;
