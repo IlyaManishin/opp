@@ -46,6 +46,14 @@ void vec_add(const double *u, const double *v, double *res, int n)
     }
 }
 
+void vec_sub(const double *u, const double *v, double *res, int n)
+{
+    for (int i = 0; i < n; i++)
+    {
+        res[i] = u[i] - v[i];
+    }
+}
+
 double vec_dot(const double *u, const double *v, int n)
 {
     double sum = 0.0;

@@ -57,7 +57,6 @@ static int *get_tasks_displs(int n, int size)
     int base = n / size;
     int rem = n % size;
 
-    int offset = 0;
     for (int i = 0; i < size; i++)
     {
         displs[i] = base + (i < rem ? 1 : 0);
@@ -73,26 +72,7 @@ static int *get_tasks_displs(int n, int size)
     return displs;
 }
 
-static int get_slave_row_count(int n, int rank, int size)
-{
-    int base = n / size;
-    int rem = n % size;
-
-    int rows_count = base + (rank < rem ? 1 : 0);
-    return rows_count;
-}
-
 #endif
-
-static SolverStatus solve_single(TLinearSystem linSys, double *x)
-{
-    double *A = linSys.A;
-    double *b = linSys.b;
-    int n = linSys.n;
-
-    SolverStatus st = solve_linear_single_impl(linSys, x, EPS, MAX_ITER);
-    return st;
-}
 
 static bool solve_linear_system()
 {
@@ -135,7 +115,7 @@ static bool solve_linear_system()
                         .b_Start = 0,
                         .b_End = n};
     LOG_TIME(linSys = read_lin_system(SRC_PATH, range);)
-    st = solve_single(linSys, x);
+    st = solve_linear_single_impl(linSys, x, EPS, MAX_ITER);
 
 #endif
 
@@ -153,7 +133,7 @@ static bool solve_linear_system()
     return succ;
 }
 
-int main(int argc, char **argv)
+int main([[maybe_unused]] int argc, [[maybe_unused]] char **argv)
 {
 #ifdef MPI
     MPI_Init(&argc, &argv);

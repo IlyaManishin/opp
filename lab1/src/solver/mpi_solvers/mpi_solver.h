@@ -5,7 +5,8 @@
 
 void slave_mpi_task(
     TLinearSystem linSys,
-    int *displs);
+    int *displs,
+    double eps);
 
 SolverStatus master_mpi_task(
     TLinearSystem linSys,

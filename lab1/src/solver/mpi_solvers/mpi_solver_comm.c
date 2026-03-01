@@ -15,14 +15,13 @@ enum SLAVE_COMMANDS
     SLAVE_MUL
 };
 
-void slave_mpi_task(TLinearSystem linSys, int *displs)
+void slave_mpi_task(TLinearSystem linSys, int *displs, double)
 {
     int rank = 0, size = 1;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
     double *A_part = linSys.A;
-    double *b = linSys.b;
     int n = linSys.n;
     int localCount = rank + 1 < size ? displs[rank + 1] - displs[rank] : n - displs[rank];
 
@@ -129,12 +128,12 @@ SolverStatus master_mpi_task(
     }
     slave_locals[size - 1] = n - displs[size - 1];
 
+    double norm_b = vec_norm(b, n);
+    if (norm_b < 1e-30)
+        norm_b = 1.0;
+
     for (int iter = 0; iter < maxIters; ++iter)
     {
-        double norm_b = vec_norm(b, n);
-        if (norm_b < 1e-30)
-            norm_b = 1.0;
-
         master_matvec(A_part, displs, slave_locals, size, n, x, y);
 
         for (int i = 0; i < n; ++i)

@@ -24,7 +24,7 @@ SolverStatus solve_mpi_impl(
     if (rank == 0)
         st = master_mpi_task(linSys, x, displs, eps, maxIters);
     else
-        slave_mpi_task(linSys, displs);
+        slave_mpi_task(linSys, displs, eps);
 
     return st;
 }
