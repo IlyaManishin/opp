@@ -1,9 +1,9 @@
 #include "config.h"
 #include "solver/solver.h"
 
-#include "matrix.h"
 #include "io_utils.h"
 #include "logger.h"
+#include "matrix.h"
 
 #include <assert.h>
 #include <math.h>
@@ -42,7 +42,6 @@ static bool checkAnswer(const double *check, const double *valid, int n)
     printf("Success\n");
     return true;
 }
-
 
 #ifdef MPI
 
@@ -85,9 +84,15 @@ static bool solve_linear_system()
     bool isMaster = false;
 #ifdef MPI
     int rank = 0;
-    int size = 1;
+    int size = 0;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
+    if (size == 0)
+    {
+        printf("Mpi error: invalid size");
+        succ = false;
+        goto exit;
+    }
 
     if (rank == 0)
     {
@@ -128,6 +133,8 @@ static bool solve_linear_system()
         }
         writeAnswer(RES_PATH, x, n);
     }
+
+exit:
     free_lin_system(&linSys);
     vector_free(x);
     return succ;

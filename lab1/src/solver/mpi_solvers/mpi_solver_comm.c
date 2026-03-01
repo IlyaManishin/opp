@@ -1,8 +1,8 @@
-#include "../utils.h"
 #include "../solver.h"
+#include "../utils.h"
 
-#include "matrix.h"
 #include "io_utils.h"
+#include "matrix.h"
 
 #include <math.h>
 #include <mpi.h>
@@ -86,7 +86,7 @@ static void master_matvec(
         MPI_Send(x, n, MPI_DOUBLE, sl, 0, MPI_COMM_WORLD);
     }
 
-    matrix_mul_vec(A, slavesMask[0],n, n, x, dest);
+    matrix_mul_vec(A, slavesMask[0], n, n, x, dest);
 
     for (int sl = 1; sl < size; ++sl)
         MPI_Recv(dest + displs[sl], slavesMask[sl], MPI_DOUBLE, sl, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
@@ -104,23 +104,23 @@ SolverStatus master_mpi_task(
     double *A_part = linSys.A;
     double *b = linSys.b;
     int n = linSys.n;
-    
-    if (!check_params(A_part, n, b, x, eps, maxIters))
-        return SOL_INPUT_ERR;
 
     int rank = 0, size = 1;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    if (size <= 0 || rank != 0)
-        return SOL_INVALID;
+    if (!check_params(A_part, n, b, x, eps, maxIters))
+    {
+        exit_slaves(rank, size);
+        return SOL_INPUT_ERR;
+    }
 
     double *y = malloc(sizeof(double) * n);
     double *Ay = malloc(sizeof(double) * n);
     int *slave_locals = (int *)malloc(sizeof(int) * size);
 
     if (slave_locals == NULL || y == NULL || Ay == NULL)
-        goto cleanup;
+        goto exit;
 
     for (int i = 0; i < size - 1; i++)
     {
@@ -143,7 +143,7 @@ SolverStatus master_mpi_task(
         if (norm_y / norm_b < eps)
         {
             status = SOL_OK;
-            break;
+            goto exit;
         }
 
         master_matvec(A_part, displs, slave_locals, size, n, y, Ay);
@@ -153,15 +153,16 @@ SolverStatus master_mpi_task(
         if (fabs(den) < 1e-30)
         {
             status = SOL_INVALID;
-            break;
+            goto exit;
         }
 
         double tau = num / den;
         for (int i = 0; i < n; ++i)
             x[i] -= tau * y[i];
     }
+    status = SOL_MAX_ITERS;
 
-cleanup:
+exit:
     exit_slaves(rank, size);
 
     free(slave_locals);

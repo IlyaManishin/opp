@@ -5,7 +5,7 @@
 #include <mpi.h>
 #include <stdlib.h>
 
-void mat_vec_task(
+void mat_vec_mul_task(
     int rank,
     int size,
     int *displs,
@@ -29,7 +29,7 @@ void mat_vec_task(
     for (int i = 0; i < size; i++)
     {
         int locCount = LOCAL_COUNT(displs, curPart, size, n);
-        int befCount = LOCAL_COUNT(displs, befPart, size, n);
+        // int befCount = LOCAL_COUNT(displs, befPart, size, n);
 
         matrix_mul_vec(mat_part + displs[curPart], startLocal, n, locCount, v_part, d_buf);
         vec_add(d_buf, d_part, d_part, startLocal);
@@ -50,4 +50,18 @@ void mat_vec_task(
         curPart = befPart;
         befPart = (befPart - 1 + size) % size;
     }
+}
+
+double vec_dot_task(double *v1_part, double *v2_part, int localCount)
+{
+    double local_dot = 0.0;
+    for (int i = 0; i < localCount; i++)
+    {
+        local_dot += v1_part[i] * v2_part[i];
+    }
+
+    double global_dot = 0.0;
+    MPI_Allreduce(&local_dot, &global_dot, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    
+    return global_dot;
 }
