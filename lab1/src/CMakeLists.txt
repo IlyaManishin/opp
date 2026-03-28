@@ -1,19 +1,19 @@
 add_subdirectory(matrix)
-add_subdirectory(utils) 
+add_subdirectory(utils)
 add_subdirectory(solver)
 
 configure_file(gen/data.txt
-               ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data.txt
-               COPYONLY)
+    ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data.txt
+    COPYONLY)
 
 find_package(MPI REQUIRED)
 
 #-------------------------------------
 #---------SINGLE CORE VERSION---------
 
-add_executable(sol_single main.c)
-target_link_libraries(sol_single PRIVATE matrix utils solver_single)
-target_link_libraries(sol_single PRIVATE m)
+# add_executable(sol_single main.c)
+# target_link_libraries(sol_single PRIVATE matrix utils solver_single)
+# target_link_libraries(sol_single PRIVATE m)
 
 
 #------------------------------------
@@ -22,13 +22,13 @@ target_link_libraries(sol_single PRIVATE m)
 #____COMMON_DATA____
 add_executable(sol_multy_comm main.c)
 target_link_libraries(sol_multy_comm PRIVATE matrix utils solver_mpi_comm)
-target_link_libraries(sol_multy_comm PRIVATE MPI::MPI_C m)
+target_link_libraries(sol_multy_comm PUBLIC MPI::MPI_C m)
 target_compile_definitions(sol_multy_comm PRIVATE MPI)
 
 #____SPLITTED_DATA____
 
 add_executable(sol_multy_split main.c)
 target_link_libraries(sol_multy_split PRIVATE matrix utils solver_mpi_split)
-target_link_libraries(sol_multy_split PRIVATE MPI::MPI_C m)
+target_link_libraries(sol_multy_split PUBLIC MPI::MPI_C m)
 target_compile_definitions(sol_multy_split PRIVATE MPI)
 

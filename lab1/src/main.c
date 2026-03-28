@@ -43,7 +43,6 @@ static bool checkAnswer(const double *check, const double *valid, int n)
     return true;
 }
 
-
 #ifdef MPI
 
 static int *get_tasks_displs(int n, int size)
@@ -92,12 +91,12 @@ static bool solve_linear_system()
         return false;
     }
 #endif
-    
+
     int n = get_lin_system_size(SRC_PATH);
     double *x = vector_create(n);
 
 #ifdef MPI
-    
+
     if (rank != 0)
         isMaster = false;
     else
@@ -134,9 +133,9 @@ static bool solve_linear_system()
             printf("\nERROR - %d\n", (int)st);
             succ = false;
         }
-        
+
         checkAnswer(x, linSys.r, linSys.n);
-            
+
         writeAnswer(RES_PATH, x, n);
     }
 
@@ -149,6 +148,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char **argv)
 {
 #ifdef MPI
     MPI_Init(&argc, &argv);
+
 #endif
 
     bool res = solve_linear_system();
