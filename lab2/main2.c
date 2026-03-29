@@ -72,13 +72,12 @@ void solve_variant2(TLinearSystem *sys, double *x)
 
 int main(int argc, char **argv)
 {
-    const char *filename = "matrix.txt";
-    int n = get_lin_system_size(filename);
+    int n = get_lin_system_size(SLAU_PATH);
     if (n <= 0)
         return 1;
 
     TLoadRange range = {0, n, 0, n};
-    TLinearSystem sys = read_lin_system(filename, range);
+    TLinearSystem sys = read_lin_system(SLAU_PATH, range);
     if (!sys.A)
         return 1;
 
