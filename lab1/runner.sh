@@ -1,14 +1,22 @@
 #!/bin/bash
+cd ./.build/bin/
+EXECUTABLES=("sol_multy_comm" "sol_multy_split")
+MAX_CORES=6
 
-BINARY="./.build/bin/sol_multy_comm"
-
-printf "Processes\tTime(s)\n"
-
-for NP in {1..6}; do
-    START=$(date +%s.%N)
-    mpirun -np $NP $BINARY
-    END=$(date +%s.%N)
-
-    ELAPSED=$(echo "$END - $START" | bc)
-    printf "%d\t\t%.6f\n" $NP $ELAPSED
+for exe in "${EXECUTABLES[@]}"; do
+    filename=$(basename "$exe")
+    output_file="${filename}-res.csv"
+    
+    echo "Cores,Execution_Time_Sec" > "$output_file"
+    
+    for ((x=1; x<=MAX_CORES; x++)); do
+        start_time=$(date +%s.%N)
+        
+        mpirun -np "$x" "$exe"
+        
+        end_time=$(date +%s.%N)
+        duration=$(echo "$end_time - $start_time" | bc)
+        
+        echo "${x},${duration}" >> "$output_file"
+    done
 done
