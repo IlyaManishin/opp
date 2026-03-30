@@ -24,11 +24,11 @@ void solve_variant2(TLinearSystem *sys, double *x)
     b_norm = sqrt(b_norm);
 
     int stop = 0;
+    int iter = 0;
     double global_norm = 0.0;
 
     #pragma omp parallel
     {
-        int iter = 0;
         while (!stop && iter < MAX_ITERATIONS)
         {
             #pragma omp single
@@ -54,17 +54,19 @@ void solve_variant2(TLinearSystem *sys, double *x)
                 }
                 iter++;
             }
-
+            
             if (stop)
             {
                 break;
             }
-
+            
             #pragma omp for
             for (int i = 0; i < n; i++)
             {
                 x[i] -= TAU * diffs[i];
             }
+            
+            #pragma omp barrier
         }
     }
     free(diffs);

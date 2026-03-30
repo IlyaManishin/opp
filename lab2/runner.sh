@@ -1,6 +1,6 @@
 #!/bin/bash
 
-EXECUTABLES=("parallel1" "parallel2")
+EXECUTABLES=("parallel2")
 THREADS=(1 2 4 6 8 12 14)
 
 for exe in "${EXECUTABLES[@]}"; do
