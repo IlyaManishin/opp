@@ -65,8 +65,6 @@ void solve_variant2(TLinearSystem *sys, double *x)
             {
                 x[i] -= TAU * diffs[i];
             }
-            
-            #pragma omp barrier
         }
     }
     free(diffs);
