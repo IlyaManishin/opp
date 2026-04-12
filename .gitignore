@@ -11,3 +11,5 @@ lab1/tests/check.c
 
 lab2/data.txt
 lab2/bin
+
+lab3/*.txt

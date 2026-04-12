@@ -1,5 +1,6 @@
 #include <math.h>
 #include <mpi.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -135,6 +136,23 @@ static void check_with_blas(const TMatrix *A, const TMatrix *B, const TMatrix *C
 }
 #endif
 
+int get_dims(int dims[2], int size, int argc, char **argv)
+{
+    if (argc < 4)
+    {
+        MPI_Dims_create(size, 2, dims);
+        return true;
+    }
+    int r = atoi(argv[2]);
+    int c = atoi(argv[3]);
+    if (r * c != size)
+        return false;
+
+    dims[0] = r;
+    dims[1] = c;
+    return true;
+}
+
 int main(int argc, char **argv)
 {
     MPI_Init(&argc, &argv);
@@ -152,7 +170,13 @@ int main(int argc, char **argv)
     }
 
     int dims[2] = {0, 0};
-    MPI_Dims_create(size, 2, dims);
+    bool succ = get_dims(dims, size, argc, argv);
+    if (!succ && rank == 0)
+    {
+        abort_all(MPI_COMM_WORLD, "Invalid grid, exit...");
+        MPI_Finalize();
+        return 1;
+    }
 
     MPI_Comm cart;
     MPI_Cart_create(MPI_COMM_WORLD, 2, dims, (int[]){0, 0}, 0, &cart);
@@ -170,10 +194,14 @@ int main(int argc, char **argv)
     TMatrix A = {0}, B = {0}, C = {0};
     int n = 0, k = 0, m = 0, ok = 1;
 
+    double t_start = 0.0, t_end = 0.0;
+
     if (rank == 0)
     {
         printf("GRID: %dx%d\n", dims[0], dims[1]);
         ok = read_input_file(argv[1], &A, &B, &n, &k, &m);
+
+        t_start = MPI_Wtime();
     }
 
     MPI_Bcast(&ok, 1, MPI_INT, 0, MPI_COMM_WORLD);
@@ -282,9 +310,11 @@ int main(int argc, char **argv)
 
     if (rank == 0)
     {
-        #ifdef CHECK
+#ifdef CHECK
         check_with_blas(&A, &B, &C);
-        #endif
+#endif
+        t_end = MPI_Wtime();
+        printf("Using time: %f seconds\n", t_end - t_start);
 
         matrix_free(&A);
         matrix_free(&B);

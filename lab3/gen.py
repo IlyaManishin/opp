@@ -1,8 +1,8 @@
 import random
 
-N = 1000
-K = 2000
-M = 1500
+N = 100
+K = 200
+M = 150
 FILENAME = "data.txt"
 
 def generate():
