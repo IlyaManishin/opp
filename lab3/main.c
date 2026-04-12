@@ -167,6 +167,7 @@ int main(int argc, char **argv)
 
     if (rank == 0)
     {
+        printf("rows = %d, cols = %d", dims[0], dims[1]);
         ok = read_input_file(argv[1], &A, &B, &n, &k, &m);
     }
 
@@ -260,16 +261,16 @@ int main(int argc, char **argv)
                 int coords_rc[2] = {r, c};
                 MPI_Cart_rank(cart, coords_rc, &src_rank);
 
-                MPI_Datatype sub;
+                MPI_Datatype sub_type;
                 int sizes[2] = {n, m};
                 int subsizes[2] = {row_counts[r], col_counts[c]};
                 int starts[2] = {row_displs[r], col_displs[c]};
 
-                MPI_Type_create_subarray(2, sizes, subsizes, starts, MPI_ORDER_C, MPI_FLOAT, &sub);
-                MPI_Type_commit(&sub);
+                MPI_Type_create_subarray(2, sizes, subsizes, starts, MPI_ORDER_C, MPI_FLOAT, &sub_type);
+                MPI_Type_commit(&sub_type);
 
-                MPI_Recv(C.data, 1, sub, src_rank, 0, cart, MPI_STATUS_IGNORE);
-                MPI_Type_free(&sub);
+                MPI_Recv(C.data, 1, sub_type, src_rank, 0, cart, MPI_STATUS_IGNORE);
+                MPI_Type_free(&sub_type);
             }
         }
     }
