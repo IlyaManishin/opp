@@ -1,3 +1,5 @@
+#include <cblas.h>
+#include <math.h>
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -83,17 +85,49 @@ static TMatrix multiply_local(const TMatrix *A, const TMatrix *B)
 
     for (int i = 0; i < A->rows; ++i)
     {
-        for (int t = 0; t < A->cols; ++t)
+        for (int j = 0; j < B->cols; ++j)
         {
-            float a = A->data[i * A->cols + t];
-            for (int j = 0; j < B->cols; ++j)
+            float sum = 0.0f;
+            for (int t = 0; t < A->cols; ++t)
             {
-                C.data[i * C.cols + j] += a * B->data[t * B->cols + j];
+                sum += A->data[i * A->cols + t] * B->data[j * A->cols + t];
             }
+            C.data[i * C.cols + j] = sum;
         }
     }
 
     return C;
+}
+
+static void check_with_blas(const TMatrix *A, const TMatrix *B, const TMatrix *C_parallel)
+{
+    int n = A->rows;
+    int k = A->cols;
+    int m = B->cols;
+
+    float *blas_res = (float *)malloc(n * m * sizeof(float));
+
+    cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
+                n, m, k, 1.0f, A->data, k, B->data, m, 0.0f, blas_res, m);
+
+    int match = 1;
+    float eps = 0.1;
+    for (int i = 0; i < n * m; i++)
+    {
+        if (fabsf(C_parallel->data[i] - blas_res[i]) > eps)
+        {
+            match = 0;
+            printf("is %f, expected %f", C_parallel->data[i], blas_res[i]);
+            break;
+        }
+    }
+
+    if (match)
+        printf("\nVerification: SUCCESS (matches BLAS)\n");
+    else
+        printf("\nVerification: FAILED (differs from BLAS)\n");
+
+    free(blas_res);
 }
 
 int main(int argc, char **argv)
@@ -242,14 +276,8 @@ int main(int argc, char **argv)
 
     if (rank == 0)
     {
-        for (int i = 0; i < C.rows; i++)
-        {
-            for (int j = 0; j < C.cols; j++)
-            {
-                printf("%0.2f ", C.data[i * C.cols + j]);
-            }
-            printf("\n");
-        }
+        check_with_blas(&A, &B, &C);
+
         matrix_free(&A);
         matrix_free(&B);
         matrix_free(&C);
