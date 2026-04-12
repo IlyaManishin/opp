@@ -1,8 +1,11 @@
-#include <cblas.h>
 #include <math.h>
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+#ifdef CHECK
+#include <cblas.h>
+#endif
 
 typedef struct
 {
@@ -99,6 +102,7 @@ static TMatrix multiply_local(const TMatrix *A, const TMatrix *B)
     return C;
 }
 
+#ifdef CHECK
 static void check_with_blas(const TMatrix *A, const TMatrix *B, const TMatrix *C_parallel)
 {
     int n = A->rows;
@@ -129,6 +133,7 @@ static void check_with_blas(const TMatrix *A, const TMatrix *B, const TMatrix *C
 
     free(blas_res);
 }
+#endif
 
 int main(int argc, char **argv)
 {
@@ -167,7 +172,7 @@ int main(int argc, char **argv)
 
     if (rank == 0)
     {
-        printf("rows = %d, cols = %d", dims[0], dims[1]);
+        printf("GRID: %dx%d\n", dims[0], dims[1]);
         ok = read_input_file(argv[1], &A, &B, &n, &k, &m);
     }
 
@@ -277,7 +282,9 @@ int main(int argc, char **argv)
 
     if (rank == 0)
     {
+        #ifdef CHECK
         check_with_blas(&A, &B, &C);
+        #endif
 
         matrix_free(&A);
         matrix_free(&B);

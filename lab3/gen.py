@@ -3,7 +3,7 @@ import random
 N = 1000
 K = 2000
 M = 1500
-FILENAME = "input.txt"
+FILENAME = "data.txt"
 
 def generate():
     with open(FILENAME, "w") as f:

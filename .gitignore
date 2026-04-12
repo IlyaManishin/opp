@@ -3,6 +3,7 @@
 **/.build
 
 **/log.txt
+**/*.clog2
 **/data.txt
 **/main
 **/*.backup
