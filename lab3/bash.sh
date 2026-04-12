@@ -1,0 +1,1 @@
+gcc main.c -o main -L/usr/local/lib/ -lmpi -Wl,-rpath=/usr/local/lib/

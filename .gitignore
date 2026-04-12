@@ -4,6 +4,7 @@
 
 **/log.txt
 **/data.txt
+**/main
 **/*.backup
 lab1/tests/check.c
 
