@@ -7,7 +7,6 @@
 
 #include <mpi.h>
 
-#define N 1000
 #define A_COEFF 10
 
 using namespace app;
@@ -34,8 +33,10 @@ void get_displs(int n, int size, std::vector<int> &sendCounts, std::vector<int> 
     }
 }
 
-int main(int argc, char const *argv[])
+int main(int argc, char *argv[])
 {
+    MPI_Init(&argc, &argv);
+
     int rank, size;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
@@ -48,5 +49,19 @@ int main(int argc, char const *argv[])
     Task task(N, rank, size, sendCounts, displs);
     bool resp = task.Run(A_COEFF);
 
-    return 0;
+    int status;
+    if (!resp)
+    {
+        std::cout << "Finish successfully" << std::endl;
+        status = EXIT_SUCCESS;
+    }
+    else
+    {
+
+        std::cout << "Finish with errors" << std::endl;
+        status = EXIT_FAILURE;
+    }
+    MPI_Finalize();
+    
+    return status;
 }
