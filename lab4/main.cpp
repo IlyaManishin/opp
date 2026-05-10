@@ -1,5 +1,5 @@
-#include "task.h"
 #include "config.h"
+#include "task.h"
 
 #include <cstdlib>
 #include <iostream>
@@ -7,27 +7,30 @@
 
 #include <mpi.h>
 
+#define N 1000
+#define A_COEFF 10
+
 using namespace app;
 
-void get_displs(int n, int size, std::vector<int> &sendcounts, std::vector<int> &displs)
+void get_displs(int n, int size, std::vector<int> &sendCounts, std::vector<int> &displs)
 {
-    sendcounts.resize(size);
+    sendCounts.resize(size);
     displs.resize(size);
 
-    int plane_size = n * n;     
-    int base_layers = n / size; 
-    int remainder = n % size;  
+    int layerSize = n * n;
+    int rawCount = n / size;
+    int remainder = n % size;
 
     int current_displacement = 0;
 
     for (int i = 0; i < size; i++)
     {
-        int layers_for_proc = base_layers + (i < remainder ? 1 : 0);
+        int layersCount = rawCount + (i < remainder ? 1 : 0);
 
-        sendcounts[i] = layers_for_proc * plane_size;
+        sendCounts[i] = layersCount * layerSize;
         displs[i] = current_displacement;
 
-        current_displacement += sendcounts[i];
+        current_displacement += sendCounts[i];
     }
 }
 
@@ -41,9 +44,9 @@ int main(int argc, char const *argv[])
     std::vector<int> displs;
 
     get_displs(N, size, sendCounts, displs);
-    
+
     Task task(N, rank, size, sendCounts, displs);
-    task.Run();
+    bool resp = task.Run(A_COEFF);
 
     return 0;
 }
