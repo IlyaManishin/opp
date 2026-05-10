@@ -34,7 +34,7 @@
                 if (this->checkAllExit())
                     return true;
                     
-                 if (rank == 0) std::cout << std::to_string(this->maxDelta * 1000) << std::endl;
+                //  if (rank == 0) std::cout << std::to_string(this->maxDelta * 1000) << std::endl;
             }
             return false;
         }

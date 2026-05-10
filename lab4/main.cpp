@@ -7,7 +7,7 @@
 
 #include <mpi.h>
 
-#define A_COEFF 10
+#define A_COEFF 10e5
 
 using namespace app;
 
@@ -33,6 +33,62 @@ void get_displs(int n, int size, std::vector<int> &sendCounts, std::vector<int> 
     }
 }
 
+bool check_result(const std::vector<double> &res, int localCount)
+{
+    double maxDiff = 0;
+
+    int testsCount = 5;
+    int layerCount = N * N;
+    int step = localCount / layerCount / testsCount;
+    for (int i = 0; i < testsCount; i++)
+    {
+        int pos = 1 + step * i;
+
+        int x = pos;
+        int y = pos;
+        int z = pos;
+
+        int layerSize = N * N;
+        int idx = z * layerSize + y * N + x;
+
+        double h = 1.0 / N;
+        double h2 = h * h;
+
+        double phi = res[idx];
+        double phi_x_plus = res[idx + 1];
+        double phi_x_minus = res[idx - 1];
+        double phi_y_plus = res[idx + N];
+        double phi_y_minus = res[idx - N];
+        double phi_z_plus = res[idx + layerSize];
+        double phi_z_minus = res[idx - layerSize];
+
+        double d2phi_dx2 = (phi_x_plus - 2.0 * phi + phi_x_minus) / h2;
+        double d2phi_dy2 = (phi_y_plus - 2.0 * phi + phi_y_minus) / h2;
+        double d2phi_dz2 = (phi_z_plus - 2.0 * phi + phi_z_minus) / h2;
+
+        double left_side = d2phi_dx2 + d2phi_dy2 + d2phi_dz2 - (A_COEFF * phi);
+
+        double real_x = x * h;
+        double real_y = y * h;
+        double real_z = z * h;
+
+        double right_side = std::sqrt(real_x * real_x + real_y * real_y + real_z * real_z);
+        double diff = std::abs(left_side - right_side);
+
+        char positions[128];
+        snprintf(positions, sizeof(positions), "(%d,%d,%d)", x, y, z);
+
+        std::cout << "Verification at " << positions << ":" << std::endl;
+        std::cout << "Left side (L(phi)): " << left_side << std::endl;
+        std::cout << "Right side (rho):   " << right_side << std::endl;
+        std::cout << "Absolute error:     " << diff << std::endl;
+
+        maxDiff = std::max(diff, maxDiff);
+    }
+
+    return (maxDiff < 1e-3);
+}
+
 int main(int argc, char *argv[])
 {
     MPI_Init(&argc, &argv);
@@ -48,20 +104,24 @@ int main(int argc, char *argv[])
 
     Task task(N, rank, size, sendCounts, displs);
     bool resp = task.Run(A_COEFF);
+    if (rank == 0)
+    {
+        bool check = check_result(task.GetMatrix(), sendCounts[0]);
+        std::cout << "Test:" << (check ? "Passed" : "Failed") << std::endl;
+    }
 
     int status;
-    if (!resp)
+    if (resp)
     {
         std::cout << "Finish successfully" << std::endl;
         status = EXIT_SUCCESS;
     }
     else
     {
-
         std::cout << "Finish with errors" << std::endl;
         status = EXIT_FAILURE;
     }
     MPI_Finalize();
-    
+
     return status;
 }
