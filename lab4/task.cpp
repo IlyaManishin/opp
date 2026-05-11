@@ -29,7 +29,7 @@
             {
                 this->resetEps();
 
-                runIteration(mainCoef, h);
+                runIteration(mainCoef, h, a);
 
                 if (this->checkAllExit())
                     return true;
@@ -39,18 +39,18 @@
             return false;
         }
 
-        void Task::runIteration(double mainCoef, double h)
+        void Task::runIteration(double mainCoef, double h, double a)
         {
             std::vector<MPI_Request> requests = this->shareEdges();
 
-            this->calcWithin(mainCoef, h);
+            this->calcWithin(mainCoef, h, a);
             this->waitEdges(requests);
-            this->calcEdges(mainCoef, h);
+            this->calcEdges(mainCoef, h, a);
 
             std::swap(matrix, buff);
         }
 
-        void Task::calcWithin(double mainCoef, double h)
+        void Task::calcWithin(double mainCoef, double h, double a)
         {
             for (int lz = 2; lz < layersLocal; lz++)
             {
@@ -62,13 +62,13 @@
                 {
                     for (int x = 1; x < n - 1; x++)
                     {
-                        calcCell(x, y, z, lz, h, mainCoef);
+                        calcCell(x, y, z, lz, h, mainCoef, a);
                     }
                 }
             }
         }
 
-        void Task::calcEdges(double mainCoef, double h)
+        void Task::calcEdges(double mainCoef, double h, double a)
         {
             int edgeLayers[2] = {1, layersLocal};
             int numEdges = (layersLocal > 1) ? 2 : 1;
@@ -84,7 +84,7 @@
                 {
                     for (int x = 1; x < n - 1; x++)
                     {
-                        calcCell(x, y, z, lz, h, mainCoef);
+                        calcCell(x, y, z, lz, h, mainCoef, a);
                     }
                 }
             }
@@ -116,10 +116,10 @@
             return requests;
         }
 
-        void Task::calcCell(double x, double y, double z, double lz, double h, double mainCoeff)
+        void Task::calcCell(double x, double y, double z, double lz, double h, double mainCoeff, double a)
         {
             int idx = lz * layerSize + y * n + x;
-            double rho = this->calcRho(x, y, z, h);
+            double rho = this->calcRho(x, y, z, a, h);
 
             double phi = matrix[idx];
             double phiNext = this->calcPhi(idx, mainCoeff, h, rho);

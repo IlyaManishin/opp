@@ -73,7 +73,7 @@ bool check_result(const std::vector<double> &res, int localCount, int N)
         double real_y = y * h;
         double real_z = z * h;
 
-        double right_side = std::sqrt(real_x * real_x + real_y * real_y + real_z * real_z);
+        double right_side = 6 - (real_x * real_x + real_y * real_y + real_z * real_z) * A_COEFF;
         double diff = std::abs(left_side - right_side);
 
         char positions[128];

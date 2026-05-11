@@ -30,15 +30,15 @@ namespace app
         const std::vector<double> &GetMatrix() { return this->matrix; };
 
     private:
-        void runIteration(double mainCoef, double h);
-        void calcWithin(double mainCoef, double h);
-        void calcEdges(double mainCoef, double h);
+        void runIteration(double mainCoef, double h, double a);
+        void calcWithin(double mainCoef, double h, double a);
+        void calcEdges(double mainCoef, double h, double a);
         bool checkAllExit();
         void resetEps() { this->maxDelta = 0; }
 
-        void calcCell(double x, double y, double z, double lz, double h, double mainCoeff);
+        void calcCell(double x, double y, double z, double lz, double h, double mainCoeff, double a);
         double calcPhi(int idx, double coeff, double h, double rho);
-        double calcRho(double x, double y, double z, double h) { return std::sqrt(x * x + y * y + z * z) * h; };
+        double calcRho(double x, double y, double z, double a, double h) { return 6 - (x * x + y * y + z * z) * a * h * h; };
 
         std::vector<MPI_Request> shareEdges();
         void waitEdges(std::vector<MPI_Request> requests) { MPI_Waitall(4, requests.data(), MPI_STATUSES_IGNORE); };
