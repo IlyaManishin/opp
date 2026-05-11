@@ -9,6 +9,10 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 
 add_compile_options("-Wall" "-Wextra" "-Wpedantic")
 
+configure_file(sizeN.txt
+    ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/sizeN.txt
+    COPYONLY)
+
 add_executable(main 
     main.cpp 
     task.cpp

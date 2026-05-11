@@ -8,6 +8,7 @@
 #include <mpi.h>
 
 #define A_COEFF 10e5
+#define SIZE_FILE "sizeN.txt"
 
 using namespace app;
 
@@ -33,7 +34,7 @@ void get_displs(int n, int size, std::vector<int> &sendCounts, std::vector<int> 
     }
 }
 
-bool check_result(const std::vector<double> &res, int localCount)
+bool check_result(const std::vector<double> &res, int localCount, int N)
 {
     double maxDiff = 0;
 
@@ -89,6 +90,17 @@ bool check_result(const std::vector<double> &res, int localCount)
     return (maxDiff < 1e-3);
 }
 
+int get_grid_size()
+{
+    FILE *file = fopen(SIZE_FILE, "r");
+    if (file == NULL)
+        return -1;
+    int N;
+    fscanf(file, "%d", &N);
+    fclose(file);
+    return N;
+}
+
 int main(int argc, char *argv[])
 {
     MPI_Init(&argc, &argv);
@@ -96,6 +108,13 @@ int main(int argc, char *argv[])
     int rank, size;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+    int N = get_grid_size();
+    if (N == -1)
+    {
+        std::cout << "Grid size file open error!" << std::endl;
+        return EXIT_FAILURE;
+    }
 
     std::vector<int> sendCounts;
     std::vector<int> displs;
@@ -106,7 +125,7 @@ int main(int argc, char *argv[])
     bool resp = task.Run(A_COEFF);
     if (rank == 0)
     {
-        bool check = check_result(task.GetMatrix(), sendCounts[0]);
+        bool check = check_result(task.GetMatrix(), sendCounts[0], N);
         std::cout << "Test:" << (check ? "Passed" : "Failed") << std::endl;
     }
 
