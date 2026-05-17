@@ -8,8 +8,9 @@
 
 constexpr int TASK_COUNT = 500;
 constexpr int ITERATION_COUNT = 10;
+constexpr int GIVE_MIN_LIMIT = 8;
 
-constexpr int TAG_NO_TASKS = -1;
+constexpr int TASKS_EMPTY = -1;
 constexpr int TAG_WORK_REQ = 1;
 constexpr int TAG_WORK_SIZE = 2;
 constexpr int TAG_WORK_DATA = 3;
@@ -94,7 +95,7 @@ std::thread runMessageThread(SafeQueue &queue, int size, int rank)
                 MPI_Recv(&recvRank, 1, MPI_INT, status.MPI_SOURCE, TAG_WORK_REQ, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
                 int available = queue.getSize();
-                int give = available > 1 ? available / 2 : 0;
+                int give = GIVE_MIN_LIMIT > 1 ? available / 2 : 0;
 
                 std::vector<int> taskList;
                 if (give > 0) {
@@ -106,7 +107,7 @@ std::thread runMessageThread(SafeQueue &queue, int size, int rank)
                     give = count; 
                 }
 
-                int taskCount = (give == 0) ? TAG_NO_TASKS : give;
+                int taskCount = (give == 0) ? TASKS_EMPTY : give;
                 MPI_Send(&taskCount, 1, MPI_INT, recvRank, TAG_WORK_SIZE, MPI_COMM_WORLD);
 
                 if (taskCount > 0) {
@@ -118,42 +119,59 @@ std::thread runMessageThread(SafeQueue &queue, int size, int rank)
         } });
 }
 
+bool tryGetTasks(SafeQueue &queue, int size, int rank)
+{
+    bool foundWork = false;
+
+    for (int j = 0; j < size; ++j)
+    {
+        if (j == rank)
+            continue;
+
+        MPI_Send(&rank, 1, MPI_INT, j, TAG_WORK_REQ, MPI_COMM_WORLD);
+
+        int taskGiven = 0;
+        MPI_Recv(&taskGiven, 1, MPI_INT, j, TAG_WORK_SIZE, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+        if (taskGiven != TASKS_EMPTY && taskGiven > 0)
+        {
+            std::vector<int> receivedTasks(taskGiven);
+            MPI_Recv(receivedTasks.data(), taskGiven, MPI_INT, j, TAG_WORK_DATA, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+            std::cout << "PR[" << rank << "]: process " << rank << " got " << taskGiven << " tasks from proc " << j << std::endl;
+
+            for (int val : receivedTasks)
+            {
+                queue.push(val);
+            }
+
+            foundWork = true;
+            break;
+        }
+    }
+    return foundWork;
+}
+
 std::thread runExecutingThread(SafeQueue &queue, int size, int rank)
 {
     return std::thread([&queue, size, rank]()
                        {
         for (int i = 0; i < ITERATION_COUNT; ++i) {
-            if (rank == 0)
+            if (rank == 0) {
                 initTasks(queue, size, rank, i);
+            }
 
             std::cout << "PR[" << rank << "]: init = " << queue.getSize() << " tasks" << std::endl;
 
-            executeTasks(queue);
+            while (true) {
+                executeTasks(queue);
 
-            if (size != 1) {
-                for (int j = 0; j < size; ++j) {
-                    if (j == rank) {
-                        continue;
-                    }
-
-                    MPI_Send(&rank, 1, MPI_INT, j, TAG_WORK_REQ, MPI_COMM_WORLD);
-
-                    int taskGiven = 0;
-                    MPI_Recv(&taskGiven, 1, MPI_INT, j, TAG_WORK_SIZE, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
-                    if (taskGiven != TAG_NO_TASKS && taskGiven > 0) {
-                        std::vector<int> receivedTasks(taskGiven);
-                        MPI_Recv(receivedTasks.data(), taskGiven, MPI_INT, j, TAG_WORK_DATA, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
-                        std::cout << "PR[" << rank << "]: process " << rank << " got " << taskGiven << " tasks from proc " << j << std::endl;
-
-                        for (int val : receivedTasks) {
-                            queue.push(val);
-                        }
-
-                        executeTasks(queue);
-                    }
+                if (size == 1 || !IS_BALANCING_ENABLED) {
+                    break;
                 }
+                bool gotTasks = tryGetTasks(queue, size, rank);
+                if (!gotTasks) 
+                    break;
             }
 
             MPI_Barrier(MPI_COMM_WORLD);
