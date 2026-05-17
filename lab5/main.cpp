@@ -11,6 +11,7 @@ constexpr int ITERATION_COUNT = 10;
 constexpr int GIVE_MIN_LIMIT = 8;
 
 constexpr int TASKS_EMPTY = -1;
+
 constexpr int TAG_WORK_REQ = 1;
 constexpr int TAG_WORK_SIZE = 2;
 constexpr int TAG_WORK_DATA = 3;
@@ -157,9 +158,8 @@ std::thread runExecutingThread(SafeQueue &queue, int size, int rank)
     return std::thread([&queue, size, rank]()
                        {
         for (int i = 0; i < ITERATION_COUNT; ++i) {
-            if (rank == 0) {
+            if (rank == 0) 
                 initTasks(queue, size, rank, i);
-            }
 
             std::cout << "PR[" << rank << "]: init = " << queue.getSize() << " tasks" << std::endl;
 
