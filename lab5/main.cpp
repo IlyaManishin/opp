@@ -1,3 +1,4 @@
+#include <atomic>
 #include <chrono>
 #include <cmath>
 #include <iostream>
@@ -6,9 +7,9 @@
 #include <thread>
 #include <vector>
 
-constexpr int TASK_COUNT = 500;
+constexpr int TASK_COUNT = 3000;
 constexpr int ITERATION_COUNT = 10;
-constexpr int GIVE_MIN_LIMIT = 8;
+constexpr int GIVE_MIN_LIMIT = 10;
 
 constexpr int TASKS_EMPTY = -1;
 
@@ -17,6 +18,8 @@ constexpr int TAG_WORK_SIZE = 2;
 constexpr int TAG_WORK_DATA = 3;
 
 static int isLog = true;
+
+static std::atomic<bool> isRestart;
 
 class SafeQueue
 {
@@ -81,46 +84,49 @@ void executeTasks(SafeQueue &queue)
     }
 }
 
-std::thread runMessageThread(SafeQueue &queue, int size, int rank)
+void messageTask(SafeQueue &queue, int rank, int size)
 {
-    return std::thread([&queue, size, rank]()
-                       {
-        while (queue.isRunning()) {
-            int flag = 0;
-            MPI_Status status;
-            
-            MPI_Iprobe(MPI_ANY_SOURCE, TAG_WORK_REQ, MPI_COMM_WORLD, &flag, &status);
+    while (queue.isRunning())
+    {
+        int flag = 0;
+        MPI_Status status;
 
-            if (flag) {
-                int recvRank;
-                MPI_Recv(&recvRank, 1, MPI_INT, status.MPI_SOURCE, TAG_WORK_REQ, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Iprobe(MPI_ANY_SOURCE, TAG_WORK_REQ, MPI_COMM_WORLD, &flag, &status);
 
-                int available = queue.getSize();
-                int give = GIVE_MIN_LIMIT > 1 ? available / 2 : 0;
+        if (flag)
+        {
+            int recvRank;
+            MPI_Recv(&recvRank, 1, MPI_INT, status.MPI_SOURCE, TAG_WORK_REQ, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
-                std::vector<int> taskList;
-                if (give > 0) {
-                    taskList.resize(give);
-                    int count = 0;
-                    while (count < give && queue.tryPop(taskList[count])) {
-                        count++;
-                    }
-                    give = count; 
+            int available = queue.getSize();
+            int give = GIVE_MIN_LIMIT > 1 ? available / 2 : 0;
+
+            std::vector<int> taskList;
+            int taskCount = 0;
+            if (give > 0)
+            {
+                taskList.resize(give);
+                while (taskCount < give && queue.tryPop(taskList[taskCount]))
+                {
+                    taskCount++;
                 }
-
-                int taskCount = (give == 0) ? TASKS_EMPTY : give;
-                MPI_Send(&taskCount, 1, MPI_INT, recvRank, TAG_WORK_SIZE, MPI_COMM_WORLD);
-
-                if (taskCount > 0) {
-                    MPI_Send(taskList.data(), taskCount, MPI_INT, recvRank, TAG_WORK_DATA, MPI_COMM_WORLD);
-                }
-            } else {
-                std::this_thread::sleep_for(std::chrono::milliseconds(1));
             }
-        } });
+
+            MPI_Send(&taskCount, 1, MPI_INT, recvRank, TAG_WORK_SIZE, MPI_COMM_WORLD);
+
+            if (taskCount > 0)
+            {
+                MPI_Send(taskList.data(), taskCount, MPI_INT, recvRank, TAG_WORK_DATA, MPI_COMM_WORLD);
+            }
+        }
+        else
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+    };
 }
 
-bool tryGetTasks(SafeQueue &queue, int size, int rank)
+bool tryGetTasks(SafeQueue &queue, int rank, int size)
 {
     bool foundWork = false;
 
@@ -134,7 +140,7 @@ bool tryGetTasks(SafeQueue &queue, int size, int rank)
         int taskGiven = 0;
         MPI_Recv(&taskGiven, 1, MPI_INT, j, TAG_WORK_SIZE, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
-        if (taskGiven != TASKS_EMPTY && taskGiven > 0)
+        if (taskGiven > 0)
         {
             std::vector<int> receivedTasks(taskGiven);
             MPI_Recv(receivedTasks.data(), taskGiven, MPI_INT, j, TAG_WORK_DATA, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
@@ -154,32 +160,53 @@ bool tryGetTasks(SafeQueue &queue, int size, int rank)
     return foundWork;
 }
 
-std::thread runExecutingThread(SafeQueue &queue, int size, int rank)
+void refillTask(SafeQueue &queue, int rank, int size)
 {
-    return std::thread([&queue, size, rank]()
-                       {
-        for (int i = 0; i < ITERATION_COUNT; ++i) {
-            if (rank == 0) 
-                initTasks(queue, size, rank, i);
-            if (isLog)
-                std::cout << "PR[" << rank << "]: init = " << queue.getSize() << " tasks" << std::endl;
+    if (rank == 0)
+        initTasks(queue, size, rank, 0);
+    if (isLog)
+        std::cout << "PR[" << rank << "]: init = " << queue.getSize() << " tasks" << std::endl;
 
-            while (true) {
-                executeTasks(queue);
-
-                if (size == 1) 
-                    break;
-                
-                bool gotTasks = tryGetTasks(queue, size, rank);
-                if (!gotTasks) 
-                    break;
-            }
-
-            MPI_Barrier(MPI_COMM_WORLD);
+    double start = MPI_Wtime();
+    while (true)
+    {
+        if (queue.getSize() > GIVE_MIN_LIMIT)
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            continue;
         }
-        if (isLog)
-            std::cout << "PR[" << rank << "]: all iterations done." << std::endl;
-        queue.setRunning(false); });
+
+        bool isGot = tryGetTasks(queue, rank, size);
+        if (!isGot)
+        {
+            while (queue.getSize() != 0)
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            break;
+        }
+    }
+    std::cout
+        << "PR[" << rank << "]: iteration finished in "
+        << (MPI_Wtime() - start)
+        << " sec"
+        << std::endl;
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    queue.setRunning(false);
+}
+
+void executingTask(SafeQueue &queue, int rank, int size)
+{
+    while (true)
+    {
+        while (queue.getSize() == 0 && queue.isRunning())
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        if (!queue.isRunning())
+            break;
+
+        executeTasks(queue);
+    }
 }
 
 int main(int argc, char *argv[])
@@ -205,11 +232,16 @@ int main(int argc, char *argv[])
 
     double start = MPI_Wtime();
 
-    std::thread messageThread = runMessageThread(queue, size, rank);
-    std::thread executingThread = runExecutingThread(queue, size, rank);
+    std::thread messageThread = std::thread([&queue, size, rank]()
+                                            { messageTask(queue, rank, size); });
+    std::thread executingThread = std::thread([&queue, size, rank]()
+                                              { executingTask(queue, rank, size); });
+    std::thread refileThread = std::thread([&queue, size, rank]()
+                                           { refillTask(queue, rank, size); });
 
     executingThread.join();
     messageThread.join();
+    refileThread.join();
 
     double finish = MPI_Wtime();
     double time = finish - start;
@@ -220,6 +252,7 @@ int main(int argc, char *argv[])
 
     if (rank == 0)
     {
+        std::cout << "PR[" << rank << "]: all iterations done." << std::endl;
         std::cout << "total time: " << maxTime << " sec" << std::endl;
     }
 
