@@ -16,7 +16,7 @@ constexpr int TAG_WORK_REQ = 1;
 constexpr int TAG_WORK_SIZE = 2;
 constexpr int TAG_WORK_DATA = 3;
 
-constexpr bool IS_BALANCING_ENABLED = true;
+static int isLog = true;
 
 class SafeQueue
 {
@@ -139,7 +139,8 @@ bool tryGetTasks(SafeQueue &queue, int size, int rank)
             std::vector<int> receivedTasks(taskGiven);
             MPI_Recv(receivedTasks.data(), taskGiven, MPI_INT, j, TAG_WORK_DATA, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
-            std::cout << "PR[" << rank << "]: process " << rank << " got " << taskGiven << " tasks from proc " << j << std::endl;
+            if (isLog)
+                std::cout << "PR[" << rank << "]: process " << rank << " got " << taskGiven << " tasks from proc " << j << std::endl;
 
             for (int val : receivedTasks)
             {
@@ -160,15 +161,15 @@ std::thread runExecutingThread(SafeQueue &queue, int size, int rank)
         for (int i = 0; i < ITERATION_COUNT; ++i) {
             if (rank == 0) 
                 initTasks(queue, size, rank, i);
-
-            std::cout << "PR[" << rank << "]: init = " << queue.getSize() << " tasks" << std::endl;
+            if (isLog)
+                std::cout << "PR[" << rank << "]: init = " << queue.getSize() << " tasks" << std::endl;
 
             while (true) {
                 executeTasks(queue);
 
-                if (size == 1 || !IS_BALANCING_ENABLED) {
+                if (size == 1) 
                     break;
-                }
+                
                 bool gotTasks = tryGetTasks(queue, size, rank);
                 if (!gotTasks) 
                     break;
@@ -176,8 +177,8 @@ std::thread runExecutingThread(SafeQueue &queue, int size, int rank)
 
             MPI_Barrier(MPI_COMM_WORLD);
         }
-
-        std::cout << "eT[" << rank << "]: all iterations done." << std::endl;
+        if (isLog)
+            std::cout << "PR[" << rank << "]: all iterations done." << std::endl;
         queue.setRunning(false); });
 }
 
@@ -191,7 +192,10 @@ int main(int argc, char *argv[])
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    if (rank == 0)
+    if (argc >= 2)
+        isLog = std::atoi(argv[1]);
+
+    if (rank == 0 && isLog)
     {
         std::cout << "size: " << size << ", tasks for each process: " << TASK_COUNT << ", iterations: " << ITERATION_COUNT << std::endl;
     }
