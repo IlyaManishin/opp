@@ -19,8 +19,6 @@ constexpr int TAG_WORK_DATA = 3;
 
 static int isLog = true;
 
-static MPI_Comm s_logic_comm;
-
 class SafeQueue
 {
 private:
@@ -91,12 +89,12 @@ void messageTask(SafeQueue &queue, int rank, int size)
         int flag = 0;
         MPI_Status status;
 
-        MPI_Iprobe(MPI_ANY_SOURCE, TAG_WORK_REQ, s_logic_comm, &flag, &status);
+        MPI_Iprobe(MPI_ANY_SOURCE, TAG_WORK_REQ, MPI_COMM_WORLD, &flag, &status);
 
         if (flag)
         {
             int recvRank;
-            MPI_Recv(&recvRank, 1, MPI_INT, status.MPI_SOURCE, TAG_WORK_REQ, s_logic_comm, MPI_STATUS_IGNORE);
+            MPI_Recv(&recvRank, 1, MPI_INT, status.MPI_SOURCE, TAG_WORK_REQ, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
             int available = queue.getSize();
             int give = available > GIVE_MIN_LIMIT ? available / 2 : 0;
@@ -112,11 +110,11 @@ void messageTask(SafeQueue &queue, int rank, int size)
                 }
             }
 
-            MPI_Send(&taskCount, 1, MPI_INT, recvRank, TAG_WORK_SIZE, s_logic_comm);
+            MPI_Send(&taskCount, 1, MPI_INT, recvRank, TAG_WORK_SIZE, MPI_COMM_WORLD);
 
             if (taskCount > 0)
             {
-                MPI_Send(taskList.data(), taskCount, MPI_INT, recvRank, TAG_WORK_DATA, s_logic_comm);
+                MPI_Send(taskList.data(), taskCount, MPI_INT, recvRank, TAG_WORK_DATA, MPI_COMM_WORLD);
             }
         }
         else
@@ -137,15 +135,15 @@ bool tryGetTasks(SafeQueue &queue, int rank, int size)
         if (j == rank)
             continue;
 
-        MPI_Send(&rank, 1, MPI_INT, j, TAG_WORK_REQ, s_logic_comm);
+        MPI_Send(&rank, 1, MPI_INT, j, TAG_WORK_REQ, MPI_COMM_WORLD);
 
         int taskGiven = 0;
-        MPI_Recv(&taskGiven, 1, MPI_INT, j, TAG_WORK_SIZE, s_logic_comm, MPI_STATUS_IGNORE);
+        MPI_Recv(&taskGiven, 1, MPI_INT, j, TAG_WORK_SIZE, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
         if (taskGiven > 0)
         {
             std::vector<int> receivedTasks(taskGiven);
-            MPI_Recv(receivedTasks.data(), taskGiven, MPI_INT, j, TAG_WORK_DATA, s_logic_comm, MPI_STATUS_IGNORE);
+            MPI_Recv(receivedTasks.data(), taskGiven, MPI_INT, j, TAG_WORK_DATA, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
             if (isLog)
                 std::cout << "PR[" << rank << "]: process " << rank << " got " << taskGiven << " tasks from proc " << j << std::endl;
@@ -239,8 +237,6 @@ int main(int argc, char *argv[])
         std::cout << "size: " << size << ", tasks for each process: " << TASK_COUNT << ", iterations: " << ITERATION_COUNT << std::endl;
     }
     
-    MPI_Comm_dup(MPI_COMM_WORLD, &s_logic_comm);
-
     SafeQueue queue;
     queue.setRunning(true);
 
@@ -262,7 +258,6 @@ int main(int argc, char *argv[])
     double maxTime = 0;
 
     MPI_Allreduce(&time, &maxTime, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-    MPI_Barrier(MPI_COMM_WORLD);
 
     if (rank == 0)
     {
